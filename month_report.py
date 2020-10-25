@@ -4,7 +4,6 @@
 import xlwings as xw
 import pandas as pd
 import time
-import traceback
 import logging
 import sys
 
@@ -14,23 +13,17 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
     stream=sys.stderr
 )
-logger = logging.getLogger("test")
+logger = logging.getLogger("month_report")
 
 
-def read_excel(filepath, sheet_name, sheet_range):
-    app = xw.App(visible=False, add_book=False)
-    wb = app.books.open(filepath)
+# 读取csv文件，返回dataframe
+def read_csv(filepath):
     df = pd.DataFrame()
     try:
-        sht = wb.sheets[sheet_name]
-        df = sht[sheet_range].options(convert=pd.DataFrame, index=False, expand='table').value
-        logger.info(f'从[{filepath}]的[{sheet_name}]分表读取数据成功！')
+        df = pd.read_csv(filepath)
+        logger.info(f'从[{filepath}]读取数据成功！')
     except Exception as e:
-        logger.info(f'从[{filepath}]的[{sheet_name}]分表读取数据失败，错误原因：{e}')
-        traceback.print_exc()
-    finally:
-        wb.close()
-        app.quit()
+        logger.exception(f'从[{filepath}]读取数据失败，错误原因：{e}')
     return df
 
 def save_to_excel(filepath, range_list, df_list):
@@ -41,9 +34,9 @@ def save_to_excel(filepath, range_list, df_list):
         sht.range('A8:BO2000').clear()
         for range_n, df in zip(range_list, df_list):
             sht.range(range_n).options(index = False).value = df
+        wb.api.RefreshAll()
     except Exception as e:
-        logger.info(f'保存失败，错误原因：{e}')
-        traceback.print_exc()
+        logger.exception(f'保存失败，错误原因：{e}')
     finally:
         wb.save()
         wb.close()
@@ -51,29 +44,16 @@ def save_to_excel(filepath, range_list, df_list):
 
 
 def main():
-    read_filepath1 = r'D:\龙腾简合\小组周报\month_data1.csv'
-    read_filepath2 = r'D:\龙腾简合\小组周报\month_data2.csv'
-    # channel_obj_path = r'D:\龙腾简合\小组周报\【KOH】7月数据复盘和8月目标制定-月初修改版V2.xlsx'
-    write_filepath = r'D:\龙腾简合\小组周报\【KOH】项目月报202009.xlsx'
+    read_filepath1 = r'Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组优化日志\沈浮\小组周报\month_data1.csv'
+    read_filepath2 = r'Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组优化日志\沈浮\小组周报\month_data2.csv'
+    write_filepath = r'Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组月报\广告3组【KOH】项目月报2020年10月整月.xlsx'
     s1 = time.perf_counter()
     # 读取月同期和月总充值数据
-    df_mon_day = read_excel(read_filepath1, 'month_data1', 'A1')
+    df_mon_day = read_csv(read_filepath1)
     # 读取分月花费和充值数据
-    df_ROI_month = read_excel(read_filepath2, 'month_data2', 'A1')
+    df_ROI_month = read_csv(read_filepath2)
     s2 = time.perf_counter()
     logger.info(f'读取的时间为 {s2 - s1:0.2f} 秒.')
-    # 获取当前时间
-    now_time = pd.Timestamp.now()
-    now_year = now_time.year
-    now_month = now_time.month
-    now_day = now_time.day
-    df_mon_begin_obj = pd.DataFrame()
-    # # 月初修改本月目标
-    # if now_day <= 7:
-    #     mon_begin_obj_path = r'Y:\广告\【共用】媒介报告\0 项目通用文件和项目目标\回收目标\【市场部】各项目月目标(new).xlsx'
-    #     sheet_name = f'{now_year}年{now_month}月'
-    #     df_mon_begin_obj = read_excel(mon_begin_obj_path, sheet_name, 'F3')
-    # df_channel_obj = read_excel(channel_obj_path, str(now_month)+'月目标制定', 'F20')
     if not df_mon_day.empty:
         # 筛选本月数据
         df_this_month = df_mon_day[df_mon_day['flag'] == 'this_month'].drop(columns=['flag'])
