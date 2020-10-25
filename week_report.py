@@ -52,7 +52,6 @@ def save_to_excel(filepath, range_list, df_list):
 def main():
     read_filepath1 = r'Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组优化日志\沈浮\小组周报\week_data1.csv'
     read_filepath2 = r'Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组优化日志\沈浮\小组周报\week_data2.csv'
-    # channel_obj_path = r'D:\龙腾简合\小组周报\【KOH】7月数据复盘和8月目标制定-月初修改版V2.xlsx'
     write_filepath = r'Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组优化日志\沈浮\小组周报\【KOH】市场周报20201004-20201010.xlsx'
     s1 = time.perf_counter()
     # 读取月同期和分周数据，以及上月同期总充值和本月总充值、目前天数和本月总天数
@@ -66,13 +65,6 @@ def main():
     now_year = now_time.year
     now_month = now_time.month
     now_day = now_time.day
-    df_mon_begin_obj = pd.DataFrame()
-    # # 月初修改本月目标
-    # if now_day <= 7:
-    #     mon_begin_obj_path = r'Y:\广告\【共用】媒介报告\0 项目通用文件和项目目标\回收目标\【市场部】各项目月目标(new).xlsx'
-    #     sheet_name = f'{now_year}年{now_month}月'
-    #     df_mon_begin_obj = read_excel(mon_begin_obj_path, sheet_name, 'F3')
-    # df_channel_obj = read_excel(channel_obj_path, str(now_month)+'月目标制定', 'F20')
     if not df_mon_week_day.empty:
         # 筛选月同期数据
         df_now_mon = df_mon_week_day[df_mon_week_day['flag'] == 'month'].drop(columns=['flag'])
