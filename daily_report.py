@@ -53,6 +53,7 @@ class DailyReport():
         self.cumulate_ad_price = None
         self.cumulate_spend = None
         self.cumulate_ad_ROI = None
+        self.cumulate_all_ROI = None
         self.price_all = None
         self.price_spon = None
         self.price_ad = None
@@ -84,6 +85,8 @@ class DailyReport():
         self.cumulate_ad_price = self.cumulate_all_price - self.cumulate_spon_price
         # 计算累计广告花费
         self.cumulate_spend = self.df_spend['spending'].sum()
+        # 计算累计项目ROI
+        self.cumulate_all_ROI = self.cumulate_all_price / self.cumulate_spend
         # 计算累计广告ROI
         self.cumulate_ad_ROI = self.cumulate_ad_price / self.cumulate_spend
         return True
@@ -111,7 +114,7 @@ class DailyReport():
         # 计算昨日自然量级
         self.num_dev_spon = df_spend_channel_daily.loc[(self.date_max, '自然渠道'), 'num_devices']
         # 将花费表按激活日期和受众分组
-        df_spend_region = self.df_spend.groupby(['dates', 'region']).sum()
+        df_spend_region = self.df_spend.groupby(['dates', 'orientate']).sum()
         # 昨日核心量级
         self.num_dev_core = df_spend_region.loc[(self.date_max, '核心'), 'num_devices']
         return True
@@ -174,19 +177,19 @@ class DailyReport():
             if self.cal_cum_data() and self.cal_yesterday_data():
                 logger.info(f'数据计算完成！')
                 self.daily_text = f"[{self.now_date}] {random.choice(self.hello_words)}\n" \
-                             f"截至{self.date_max[5:]}，" \
-                                  f"累计充值${self.cumulate_all_price / 1000 if self.cumulate_all_price > 1000 else self.cumulate_all_price: .2f}{'k' if self.cumulate_all_price > 1000 else ''}，" \
+                             f"截至{self.date_max[5:]}，\n" \
+                             f"累计充值${self.cumulate_all_price / 1000 if self.cumulate_all_price > 1000 else self.cumulate_all_price: .2f}{'k' if self.cumulate_all_price > 1000 else ''}，" \
                              f"其中自然充值${self.cumulate_spon_price / 1000 if self.cumulate_spon_price > 1000 else self.cumulate_spon_price: .2f}{'k' if self.cumulate_spon_price > 1000 else ''}，" \
-                             f"广告充值${self.cumulate_ad_price / 1000 if self.cumulate_ad_price > 1000 else self.cumulate_ad_price: .2f}{'k' if self.cumulate_ad_price > 1000 else ''}，" \
-                             f"广告ROI{self.cumulate_ad_ROI: .2%}\n" \
+                             f"广告充值${self.cumulate_ad_price / 1000 if self.cumulate_ad_price > 1000 else self.cumulate_ad_price: .2f}{'k' if self.cumulate_ad_price > 1000 else ''};\n" \
+                             f"累计项目ROI{self.cumulate_all_ROI: .2%}，累计广告ROI{self.cumulate_ad_ROI: .2%};\n" \
                              f"昨日充值${self.price_all: .1f}，其中自然充值${self.price_spon: .1f}，" \
-                             f"广告充值${self.price_ad: .1f}\n" \
+                             f"广告充值${self.price_ad: .1f};\n" \
                              f"昨日花费${self.spend_all / 1000: .2f}k，" \
-                             f"环比{'上升' if self.spend_all_pct > 0 else '下降'}{abs(self.spend_all_pct): .2%}\n" \
+                             f"环比{'上升' if self.spend_all_pct > 0 else '下降'}{abs(self.spend_all_pct): .2%};\n" \
                              f"昨日量级{self.num_dev_all / 1000: .1f}k，自然量级{self.num_dev_spon / 1000: .1f}k，" \
-                             f"自然占比{self.num_dev_spon / self.num_dev_all: .2%}\n" \
+                             f"自然占比{self.num_dev_spon / self.num_dev_all: .2%};\n" \
                              f"昨日核心量级{self.num_dev_core / 1000: .1f}k，" \
-                             f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}"
+                             f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}."
                 self.send_message()
             self.save_excel(self.report_path_old, self.report_path_new)
 
