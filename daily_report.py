@@ -4,7 +4,8 @@
 import xlwings as xw
 import pandas as pd
 from pathlib import Path
-import datetime, time
+import time
+from datetime import date, timedelta
 import random
 import logging, sys
 import requests, json
@@ -24,9 +25,9 @@ class DailyReport():
         self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组日报')
         self.recharge_filepath = self.main_path.joinpath('数据源','daily_recharge.csv')
         self.spend_filepath = self.main_path.joinpath('数据源','daily_spend.csv')
-        self.now_date = datetime.date.today()
-        self.yesterday = self.now_date - datetime.timedelta(days=1)
-        self.before_2day = self.yesterday - datetime.timedelta(days=1)
+        self.now_date = date.today()
+        self.yesterday = self.now_date - timedelta(days=1)
+        self.before_2day = self.yesterday - timedelta(days=1)
         self.report_path_old = self.main_path.joinpath('0-报告存放','KOH账户组执行进度追踪报告-' +
                                  self.before_2day.strftime('%Y%m%d') + '.xlsx')
         self.report_path_new = self.main_path.joinpath('0-报告存放', 'KOH账户组执行进度追踪报告-' +
@@ -155,6 +156,19 @@ class DailyReport():
             logging.info("消息发送失败！response.status_code错误")
             return False
 
+    # 判断report_path_old是否存放有近期日报，若无，则查找最近一期的日报文件路径
+    def is_old_path_exist(self):
+        before_nday = self.before_2day
+        while not self.report_path_old.exists() and self.before_2day - before_nday < timedelta(days=15):
+            before_nday -= timedelta(days=1)
+            self.report_path_old = self.main_path.joinpath('0-报告存放', 'KOH账户组执行进度追踪报告-' +
+                                                            before_nday.strftime('%Y%m%d') + '.xlsx')
+        if self.report_path_old.exists():
+            return True
+        else:
+            logger.info(f"请确保[{self.main_path.joinpath('0-报告存放')}]存放有近期日报!")
+            return False
+
     # 将filepath_old文件刷新并另存为filepath_new
     def save_excel(self, filepath_old, filepath_new):
         app = xw.App(visible=False, add_book=False)
@@ -177,21 +191,22 @@ class DailyReport():
             if self.cal_cum_data() and self.cal_yesterday_data():
                 logger.info(f'数据计算完成！')
                 self.daily_text = f"[{self.now_date}] {random.choice(self.hello_words)}\n" \
-                             f"截至{self.date_max[5:]}，\n" \
-                             f"累计充值${self.cumulate_all_price / 1000 if self.cumulate_all_price > 1000 else self.cumulate_all_price: .2f}{'k' if self.cumulate_all_price > 1000 else ''}，" \
-                             f"其中自然充值${self.cumulate_spon_price / 1000 if self.cumulate_spon_price > 1000 else self.cumulate_spon_price: .2f}{'k' if self.cumulate_spon_price > 1000 else ''}，" \
-                             f"广告充值${self.cumulate_ad_price / 1000 if self.cumulate_ad_price > 1000 else self.cumulate_ad_price: .2f}{'k' if self.cumulate_ad_price > 1000 else ''};\n" \
-                             f"累计项目ROI{self.cumulate_all_ROI: .2%}，累计广告ROI{self.cumulate_ad_ROI: .2%};\n" \
-                             f"昨日充值${self.price_all: .1f}，其中自然充值${self.price_spon: .1f}，" \
-                             f"广告充值${self.price_ad: .1f};\n" \
-                             f"昨日花费${self.spend_all / 1000: .2f}k，" \
-                             f"环比{'上升' if self.spend_all_pct > 0 else '下降'}{abs(self.spend_all_pct): .2%};\n" \
-                             f"昨日量级{self.num_dev_all / 1000: .1f}k，自然量级{self.num_dev_spon / 1000: .1f}k，" \
-                             f"自然占比{self.num_dev_spon / self.num_dev_all: .2%};\n" \
-                             f"昨日核心量级{self.num_dev_core / 1000: .1f}k，" \
-                             f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}."
+                                  f"截至{self.date_max[5:]}，\n" \
+                                  f"累计充值${self.cumulate_all_price / 1000 if self.cumulate_all_price > 1000 else self.cumulate_all_price: .2f}{'k' if self.cumulate_all_price > 1000 else ''}，" \
+                                  f"其中自然充值${self.cumulate_spon_price / 1000 if self.cumulate_spon_price > 1000 else self.cumulate_spon_price: .2f}{'k' if self.cumulate_spon_price > 1000 else ''}，" \
+                                  f"广告充值${self.cumulate_ad_price / 1000 if self.cumulate_ad_price > 1000 else self.cumulate_ad_price: .2f}{'k' if self.cumulate_ad_price > 1000 else ''};\n" \
+                                  f"累计项目ROI{self.cumulate_all_ROI: .2%}，累计广告ROI{self.cumulate_ad_ROI: .2%};\n" \
+                                  f"昨日充值${self.price_all: .1f}，其中自然充值${self.price_spon: .1f}，" \
+                                  f"广告充值${self.price_ad: .1f};\n" \
+                                  f"昨日花费${self.spend_all / 1000: .2f}k，" \
+                                  f"环比{'上升' if self.spend_all_pct > 0 else '下降'}{abs(self.spend_all_pct): .2%};\n" \
+                                  f"昨日量级{self.num_dev_all / 1000: .1f}k，自然量级{self.num_dev_spon / 1000: .1f}k，" \
+                                  f"自然占比{self.num_dev_spon / self.num_dev_all: .2%};\n" \
+                                  f"昨日核心量级{self.num_dev_core / 1000: .1f}k，" \
+                                  f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}."
                 self.send_message()
-            self.save_excel(self.report_path_old, self.report_path_new)
+            if self.is_old_path_exist():
+                self.save_excel(self.report_path_old, self.report_path_new)
 
 
 def main():
