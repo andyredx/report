@@ -32,19 +32,6 @@ class DailyReport():
                                  self.before_2day.strftime('%Y%m%d') + '.xlsx')
         self.report_path_new = self.main_path.joinpath('0-报告存放', 'KOH账户组执行进度追踪报告-' +
                                                        self.yesterday.strftime('%Y%m%d') + '.xlsx')
-        self.hello_words = [
-            '小时候我以为打工的意思背着蛇皮袋踏上绿皮火车去远方的工地,长大后发现只要是上班都叫打工。早安，打工人！',
-            '你在拼多多到处找人砍价，他在滴滴打车求人助力，我在电子厂拧螺丝拧到凌晨，我们都有光明的未来。早上好！打工人！',
-            '靠别人是公主，靠你叽哇是日本人，靠北啦是台湾人，靠恁娘是河南人，靠自己是光荣的打工人，早安，打工人！',
-            '三百六十行，行行都早起，凌晨四点还没起的多半是废物，我想我们不是一路人，早起的鸟儿有虫吃，机会往往掌握在早起的人手里，早安，打工人！',
-            '朋友们，累吗？累就对了，舒服是留给有钱人的。早安，打工人！',
-            '敢上九天揽月，敢下五洋捉鳖，但却不敢迟到，因为迟到扣钱！早安 打工人！',
-            '过安检的时候检测仪一直响，安检的姐姐让我把所有的东西都掏出来检查过了还是一直响，然后她问我干什么的，我说我打工的，她说好家伙，难怪检测出了钢铁般的意志！早安！打工人！',
-            '今天去看牙医，牙医问我年纪轻轻的牙齿怎么磨损这么严重？我说这些年，我都是咬着牙过来的。加油，打工人!',
-            '你的微博好久没提及星球、银河、宇宙、梦想、文学了，怎么，是不是跟我一样去打工了？',
-            '你好像只会说一句话，我看了一下聊天记录，我们的聊天记录里，无论我说什么，你都只回一句:早安，打工人!',
-            '打工累吗？累。但是我不能哭，因为骑电动车的时候擦眼泪不安全。'
-        ]
         self.daily_text = None
         self.df_recharge = pd.DataFrame()
         self.df_spend = pd.DataFrame()
@@ -190,7 +177,7 @@ class DailyReport():
         if self.read_source():
             if self.cal_cum_data() and self.cal_yesterday_data():
                 logger.info(f'数据计算完成！')
-                self.daily_text = f"[{self.now_date}] {random.choice(self.hello_words)}\n" \
+                self.daily_text = f"[{self.now_date}] 早安~打工人\n" \
                                   f"截至{self.date_max[5:]}，\n" \
                                   f"累计充值${self.cumulate_all_price / 1000 if self.cumulate_all_price > 1000 else self.cumulate_all_price: .2f}{'k' if self.cumulate_all_price > 1000 else ''}，" \
                                   f"其中自然充值${self.cumulate_spon_price / 1000 if self.cumulate_spon_price > 1000 else self.cumulate_spon_price: .2f}{'k' if self.cumulate_spon_price > 1000 else ''}，" \
