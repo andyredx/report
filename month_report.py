@@ -67,13 +67,13 @@ class MonthReport():
                                                         self.last2month_firstday.month)[1]
         return True
 
-    # 生成周报读取与存储文件名和路径
+    # 生成月报读取与存储文件名和路径
     def gen_filepath(self):
         # 已到本月下旬，本月数据不完整
         if self.today.day > 20:
-            read_filename = '广告3组【KOH】项目月报' + self.today.strftime('%Y') + '年' + \
+            read_filename = '广告3组【KOH】项目月报' + self.lastmonth_firstday.strftime('%Y') + '年' + \
                             self.lastmonth_firstday.strftime('%m') + '月整月' + '.xlsx'
-            write_filename = '广告3组【KOH】项目月报' + self.today.strftime('%Y') + '年' + \
+            write_filename = '广告3组【KOH】项目月报' + self.thismonth_firstday.strftime('%Y') + '年' + \
                              self.thismonth_firstday.strftime('%m') + '月不完整' + '.xlsx'
         # 未到本月下旬，上个月数据完整
         else:
