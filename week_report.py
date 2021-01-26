@@ -72,12 +72,7 @@ class WeekReport():
             df_last_month.insert(0, '时间', df_last_month.pop('时间').apply(lambda x: datetime.strptime(x, '%Y-%m-%d')))
             # 筛选分周数据
             df_week = self.df_mon_week_day[self.df_mon_week_day['flag'] == 'week'].drop(columns=['flag'])
-            # 近五周数据
-            list_weeks = sorted(set(df_week['时间']), reverse=True)
-            list_week_names = ['本周', '前一周', '前两周', '前三周', '前四周']
-            dic_week_names = dict(zip(list_weeks, list_week_names))
-            df_week.insert(0, '周时间', df_week.apply(lambda x: dic_week_names[x['时间']], axis=1))
-            df_week = df_week.drop(columns=['时间'])
+            df_week = df_week.rename(columns={'时间': '周时间'})
             # 筛选上月同期总充值和本月总充值、目前天数和本月总天数
             df_price_days = self.df_mon_week_day[self.df_mon_week_day['flag'] == 'day']
             df_price_days = df_price_days[['充值金额', '时间']]
