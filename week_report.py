@@ -54,6 +54,13 @@ class WeekReport():
         filename = '【KOH】市场周报' + last_3_Sunday.strftime('%Y%m%d') + '-' + \
                    last_2_Saturday.strftime('%Y%m%d') + '.xlsx'
         self.read_filepath = self.main_path.joinpath(filename)
+        # 判断读取文件路径是否存在，若无，则再往前一周
+        if not self.read_filepath.exists():
+            last_4_Sunday = self.today - timedelta(days=22 + self.today.weekday())
+            last_3_Saturday = self.today - timedelta(days=16 + self.today.weekday())
+            filename = '【KOH】市场周报' + last_4_Sunday.strftime('%Y%m%d') + '-' + \
+                       last_3_Saturday.strftime('%Y%m%d') + '.xlsx'
+            self.read_filepath = self.main_path.joinpath(filename)
         last_2_Sunday = self.today - timedelta(days=8 + self.today.weekday())
         last_Saturday = self.today - timedelta(days=2 + self.today.weekday())
         filename = '【KOH】市场周报' + last_2_Sunday.strftime('%Y%m%d') + '-' + \
