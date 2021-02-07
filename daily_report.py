@@ -88,23 +88,23 @@ class DailyReport():
         self.price_spon = df_rech_channel_daily.loc[(self.date_max, '自然渠道')]
         self.price_ad = self.price_all - self.price_spon
         # 将花费表按激活日期分组
-        df_spend_daily = self.df_spend.groupby(['dates'])[['spending', 'num_devices']].sum()
+        df_spend_daily = self.df_spend.groupby(['dates'])[['spending', 'num_dev']].sum()
         # 计算总花费分日环比
         df_spend_pct_daily = df_spend_daily.pct_change()
         # 昨日总花费和环比
         self.spend_all = df_spend_daily.loc[(self.date_max, 'spending')]
         self.spend_all_pct = df_spend_pct_daily.loc[self.date_max, 'spending']
         # 昨日总量级和环比
-        self.num_dev_all = df_spend_daily.loc[(self.date_max, 'num_devices')]
-        self.num_dev_all_pct = df_spend_pct_daily.loc[self.date_max, 'num_devices']
+        self.num_dev_all = df_spend_daily.loc[(self.date_max, 'num_dev')]
+        self.num_dev_all_pct = df_spend_pct_daily.loc[self.date_max, 'num_dev']
         # 将花费表按激活日期和渠道名称分组
         df_spend_channel_daily = self.df_spend.groupby(['dates', 'channelname']).sum()
         # 计算昨日自然量级
-        self.num_dev_spon = df_spend_channel_daily.loc[(self.date_max, '自然渠道'), 'num_devices']
+        self.num_dev_spon = df_spend_channel_daily.loc[(self.date_max, '自然渠道'), 'num_dev']
         # 将花费表按激活日期和受众分组
         df_spend_region = self.df_spend.groupby(['dates', 'orientate']).sum()
         # 昨日核心量级
-        self.num_dev_core = df_spend_region.loc[(self.date_max, '核心'), 'num_devices']
+        self.num_dev_core = df_spend_region.loc[(self.date_max, '核心'), 'num_dev']
         return True
 
     # 读取数据源
