@@ -49,6 +49,8 @@ class WeekReport():
 
     # 生成周报读取与存储文件名和路径
     def gen_filepath(self):
+        if self.today.weekday() == 6:
+            self.today = date.today() + timedelta(days=1)
         last_3_Sunday = self.today - timedelta(days=15 + self.today.weekday())
         last_2_Saturday = self.today - timedelta(days=9 + self.today.weekday())
         filename = '【KOH】市场周报' + last_3_Sunday.strftime('%Y%m%d') + '-' + \
@@ -173,7 +175,7 @@ class WeekReport():
                 self.save_to_excel(self.read_filepath, self.write_filepath,
                                    ['B1', 'A8', 'O8', 'AC8', 'AR8', 'AY8', 'BF8'],
                                    list_data)
-                self.week_text = f"[{self.today}] 【KOH】市场周报已更新至：{self.write_filepath}"
+                self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
                 self.send_message()
 
 
