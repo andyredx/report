@@ -82,7 +82,7 @@ class DailyReport():
     # 计算昨日数据
     def cal_yesterday_data(self):
         # 将充值表按充值日期和渠道名称分组
-        df_rech_channel_daily = self.df_recharge.groupby(['recharge_date', 'channelname'])['price'].sum()
+        df_rech_channel_daily = self.df_recharge.groupby(['rech_date', 'channelname'])['price'].sum()
         # 计算昨日总充值和自然、广告充值
         self.price_all = df_rech_channel_daily.loc[self.date_max].sum()
         self.price_spon = df_rech_channel_daily.loc[(self.date_max, '自然渠道')]
