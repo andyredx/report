@@ -6,7 +6,6 @@ import pandas as pd
 from pathlib import Path
 import time
 from datetime import date, timedelta
-import random
 import logging, sys
 import requests, json
 
