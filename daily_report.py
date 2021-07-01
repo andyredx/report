@@ -438,12 +438,12 @@ class DailyReport():
                                       f"计划花费完成度{self.plan_spend_complete: .1%};\n" \
                                       f"累计月流水${self.month_amount / 10000 if self.month_amount > 10000 else self.month_amount: .2f}{'W' if self.month_amount > 1000 else ''}，" \
                                       f"完成度{self.month_amount_complete: .1%};\n" \
-                                      f"累计项目ROI{self.cumulate_all_ROI: .2%}，完成度{self.ROI_complete: .1%}; " \
+                                      f"累计项目ROI{self.cumulate_all_ROI: .2%}，完成度{self.ROI_complete: .1%}；" \
                                       f"累计广告ROI{self.cumulate_ad_ROI: .2%}，完成度{self.ad_ROI_complete: .1%};\n" \
                                       f"累计充值${self.cumulate_all_price / 1000 if self.cumulate_all_price > 1000 else self.cumulate_all_price: .2f}{'k' if self.cumulate_all_price > 1000 else ''}，" \
-                                      f"完成度{self.price_complete: .1%};" \
+                                      f"完成度{self.price_complete: .1%}；" \
                                       f"其中自然充值${self.cumulate_or_price / 1000 if self.cumulate_or_price > 1000 else self.cumulate_or_price: .2f}{'k' if self.cumulate_or_price > 1000 else ''}，" \
-                                      f"完成度{self.or_price_complete: .1%};" \
+                                      f"完成度{self.or_price_complete: .1%}；" \
                                       f"广告充值${self.cumulate_ad_price / 1000 if self.cumulate_ad_price > 1000 else self.cumulate_ad_price: .2f}{'k' if self.cumulate_ad_price > 1000 else ''}，" \
                                       f"完成度{self.ad_price_complete: .1%};\n" \
                                       f"累计花费${self.cumulate_spend / 1000 if self.cumulate_spend > 1000 else self.cumulate_spend: .2f}{'k' if self.cumulate_spend > 1000 else ''}，" \
@@ -455,8 +455,8 @@ class DailyReport():
                                       f"昨日量级{self.num_dev_all / 1000: .1f}k，自然量级{self.num_dev_or / 1000: .1f}k，" \
                                       f"自然占比{self.num_dev_or / self.num_dev_all: .2%};\n" \
                                       f"昨日核心量级{self.num_dev_core / 1000: .1f}k，" \
-                                      f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}."
-                    print(self.daily_text)
+                                      f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}.\n" \
+                                      f"详情见 {self.main_path.joinpath('日报')}"
                     self.send_message()
 
                 if self.gen_filepath():
