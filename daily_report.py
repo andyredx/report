@@ -79,8 +79,10 @@ class DailyReport():
         self.num_dev_all_pct = None
         self.num_dev_or = None
         self.num_dev_core = None
+        self.num_dev_or_core = None
+        self.num_dev_ad_core = None
 
-    # 读取csv文件，返回dataframe
+        # 读取csv文件，返回dataframe
     def read_csv(self, filepath):
         df = pd.DataFrame()
         try:
@@ -217,6 +219,8 @@ class DailyReport():
             stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(seasonal_order=(1, 0, 1, 31)), seasonal=31, period=31)
             stlf_res = stlf.fit()
             forecast = stlf_res.forecast(future_days).reset_index(drop=True)
+            # 将预测值中的负值置为0
+            forecast = forecast.apply(lambda x: 0 if x < 0 else x)
             df_forecast = pd.DataFrame(
                 {'dates': pd.Series(
                     pd.date_range(start=self.future_firstday.strftime('%Y-%m-%d'), periods=self.future_days)),
@@ -226,6 +230,8 @@ class DailyReport():
             stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(1,0,1)), seasonal=31, period=31)
             stlf_res = stlf.fit()
             forecast = stlf_res.forecast(future_days).reset_index(drop=True)
+            # 将预测值中的负值置为0
+            forecast = forecast.apply(lambda x: 0 if x < 0 else x)
             df_forecast = pd.DataFrame(
                 {'dates': pd.Series(
                     pd.date_range(start=self.future_firstday.strftime('%Y-%m-%d'), periods=self.future_days)),
@@ -235,6 +241,8 @@ class DailyReport():
             stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(0, 1, 0)), period=31)
             stlf_res = stlf.fit()
             forecast = stlf_res.forecast(future_days).reset_index(drop=True)
+            # 将预测值中的负值置为0
+            forecast = forecast.apply(lambda x: 0 if x < 0 else x)
             df_forecast = pd.DataFrame(
                 {'dates': pd.Series(
                     pd.date_range(start=self.future_firstday.strftime('%Y-%m-%d'), periods=self.future_days)),
@@ -307,6 +315,12 @@ class DailyReport():
         df_orient_group_daily = df_spend_rech_daily.groupby(['orientate','dates'])[['spending','num_dev','price']].sum()
         # 昨日核心量级
         self.num_dev_core = df_orient_group_daily.loc[('核心',self.date_max_str), 'num_dev']
+        # 昨日自然核心量级
+        df_channel_orient_group_daily = df_spend_rech_daily.groupby(['channel_type', 'orientate', 'dates'])[
+            ['spending', 'num_dev', 'price']].sum()
+        self.num_dev_or_core = df_channel_orient_group_daily.loc[('自然','核心',self.date_max_str), 'num_dev']
+        # 昨日广告核心量级
+        self.num_dev_ad_core = self.num_dev_core - self.num_dev_or_core
         return True
 
     # 通过钉钉机器人发送信息
@@ -366,12 +380,12 @@ class DailyReport():
             for range_n, df in zip(range_list, df_list):
                 sht_source.range(range_n).options(index=False).value = df
             s1 = time.perf_counter()
-            logger.info(f'读取上周周报的时间为{s1 - s0: .2f}秒.')
+            logger.info(f'读取上次日报的时间为{s1 - s0: .2f}秒.')
             wb.api.RefreshAll()
             s2 = time.perf_counter()
             logger.info(f'刷新数据的时间为{s2 - s1: .2f}秒.')
             wb.save(write_filepath)
-            logger.info(f'保存本周周报的时间为{time.perf_counter() - s2: .2f}秒.')
+            logger.info(f'保存今日日报的时间为{time.perf_counter() - s2: .2f}秒.')
         except Exception as e:
             logger.exception(f'操作excel失败，错误原因：{e}')
         finally:
@@ -455,7 +469,9 @@ class DailyReport():
                                       f"昨日量级{self.num_dev_all / 1000: .1f}k，自然量级{self.num_dev_or / 1000: .1f}k，" \
                                       f"自然占比{self.num_dev_or / self.num_dev_all: .2%};\n" \
                                       f"昨日核心量级{self.num_dev_core / 1000: .1f}k，" \
-                                      f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}.\n" \
+                                      f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}，" \
+                                      f"其中，自然核心量级{self.num_dev_or_core / 1000: .1f}k，" \
+                                      f"广告核心量级{self.num_dev_ad_core / 1000: .1f}k.\n" \
                                       f"详情见 {self.main_path.joinpath('日报')}"
                     self.send_message()
 
