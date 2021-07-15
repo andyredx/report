@@ -82,7 +82,7 @@ class DailyReport():
         self.num_dev_or_core = None
         self.num_dev_ad_core = None
 
-        # 读取csv文件，返回dataframe
+    # 读取csv文件，返回dataframe
     def read_csv(self, filepath):
         df = pd.DataFrame()
         try:

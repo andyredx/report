@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 # encoding=utf-8
 
-import xlwings as xw
-import pandas as pd
-import requests,json
-import time
-from datetime import datetime,date,timedelta
-from pathlib import Path
+import json
 import logging
 import sys
+import time, calendar
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from statsmodels.tsa.forecasting.stl import STLForecast
+from statsmodels.tsa.arima.model import ARIMA
+
+import pandas as pd
+import requests
+import xlwings as xw
 
 logging.basicConfig(
     format = "%(asctime)s %(levelname)s:%(name)s: %(message)s",
@@ -21,14 +25,25 @@ logger = logging.getLogger("week_report")
 
 class WeekReport():
     def __init__(self):
-        self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组周报')
-        self.recharge_filepath = self.main_path.joinpath('数据源', 'week_recharge.csv')
-        self.spend_filepath = self.main_path.joinpath('数据源', 'week_spend.csv')
-        self.today = date.today()
+        self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组报告')
+        self.source_filepath = self.main_path.joinpath('数据源', 'data_weekly.csv')
+        self.target_filepath = self.main_path.joinpath('数据源', '投放计划与目标.xlsx')
+        self.target_sheetname = None
+        self.df_source = None
+        self.df_target = None
+        self.df_target_amount = None
+        self.train_or_not = True
+        self.date_max = None
+        self.date_max_str = None
+        self.thismonth_firstday = None
+        self.thismonth_lastday = None
+        self.future_firstday = None
+        self.now_date = date.today()
+        self.totaldays_thismonth = None
+        self.future_days = None
+        self.df_spliced_pred_all = None
         self.read_filepath = None
         self.write_filepath = None
-        self.df_mon_week_day = pd.DataFrame()
-        self.df_ROI_month = pd.DataFrame()
         self.week_text = None
 
     # 读取csv文件，返回dataframe
@@ -41,11 +56,93 @@ class WeekReport():
             logger.exception(f'从[{filepath}]读取数据失败，错误原因：{e}')
         return df
 
+    # 读取excel文件，返回dataframe
+    def read_excel(self, filepath, sheetName):
+        df = pd.DataFrame()
+        try:
+            df = pd.read_excel(filepath, sheet_name = sheetName)
+            logger.info(f'从[{filepath}]读取数据成功！')
+        except Exception as e:
+            logger.exception(f'从[{filepath}]读取数据失败，错误原因：{e}')
+        return df
+
     # 读取数据源
     def read_source(self):
-        self.df_mon_week_day = self.read_csv(self.spend_filepath)
-        self.df_ROI_month = self.read_csv(self.recharge_filepath)
+        self.df_source = self.read_csv(self.source_filepath)
         return True
+
+    # 读取投放计划与目标
+    def read_target(self):
+        self.df_target = self.read_excel(self.target_filepath, self.target_sheetname)
+        return True
+
+    # 生成目标分表名称
+    def gen_target_sheetname(self):
+        self.target_sheetname = str(self.date_max.month) + '月'
+
+    # 清洗目标分表的列名
+    def transfer_target_column(self):
+        self.df_target = self.df_target.rename(columns={'渠道': 'channel_name','受众': 'orientate',
+                                                        '月预算': 'month_spend','月导量': 'month_ndev',
+                                                        '月ROI': 'month_ROI','周ROI': 'week_ROI',
+                                                        '月充值金额': 'month_price','次留率': 'retent_rate'})
+        self.df_target = self.df_target.drop(columns=['日均预算','日均导量','成本(CPI)','预算占比','量级占比','充值占比'])
+        # 筛选月流水目标
+        self.df_target_amount = self.df_target[self.df_target['channel_name'] == '月流水'].drop(columns=[
+                'channel_name','orientate','month_spend','month_ndev','month_ROI','week_ROI','retent_rate'])
+        self.df_target_amount = self.df_target_amount.rename(columns={'month_price': 'amount_target'}).reset_index(drop=True)
+        # 筛选非月流水目标
+        self.df_target = self.df_target[self.df_target['channel_name'] != '月流水']
+
+    # 按category筛选数据
+    def select_by_category(self):
+        if not self.df_source.empty:
+            # 筛选月同期总数据
+            df_now_month = self.df_source[self.df_source['category'] == 'now_month'].drop(columns=['category'])
+            # 筛选月度分日花费和充值数据
+            df_ROI_monthly = self.df_source[(self.df_source['category'] == 'this_month') |
+                                            (self.df_source['category'] == 'last_month') |
+                                            (self.df_source['category'] == 'last_year_month')][[
+                'category','dates','channel_type','spending','price']]
+            # 计算本月各个日期
+            self.date_max_str = df_ROI_monthly['dates'].max()
+            self.date_max = datetime.strptime(self.date_max_str, '%Y-%m-%d').date()
+            self.thismonth_firstday = self.date_max.replace(day=1)
+            self.future_firstday = self.date_max + timedelta(days=1)
+            self.totaldays_thismonth = calendar._monthlen(self.date_max.year, self.date_max.month)
+            self.future_days = self.totaldays_thismonth - self.date_max.day
+            self.thismonth_lastday = self.date_max + timedelta(days=self.future_days)
+            # 筛选周度总数据
+            df_weekly = self.df_source[self.df_source['category'] == 'weekly'].drop(columns=['category'])
+            df_weekly = df_weekly.rename(columns={'dates': 'act_weeks'})
+            # # 筛选月流水数据
+            # df_month_price = self.df_source[self.df_source['category'] == 'month_amount'][['dates','num_rech_dev','price']]
+            # df_month_price = df_month_price.rename(columns={'dates': 'now_days'})
+            # # 月流水数据添加日报最大日期
+            # df_month_price = pd.DataFrame({'dates': [self.date_max]}).join(df_month_price)
+            # # 是否有待训练数据，若无，则无需训练
+            # if self.df_source[self.df_source['category'] == 'price'].empty:
+            #     self.train_or_not = False
+            #     # 筛选本月分日花费和充值数据
+            #     df_channel_type_group_daily = self.df_source[self.df_source['category'] == 'spending'][[
+            #         'channel_type','dates','spending','price']]
+            #     return {'daily': df_spend_rech_daily,
+            #             'weekly': df_spend_rech_weekly,
+            #             'month_amount': df_month_price,
+            #             'channel_daily': df_channel_type_group_daily}
+            # else:
+            #     # 筛选待训练充值数据
+            #     df_price_for_learn = self.df_source[self.df_source['category'] == 'price'][['channel_type','dates','price']]
+            #     # 筛选待训练花费数据
+            #     df_spend_for_learn = self.df_source[self.df_source['category'] == 'spending'][['dates','spending']]
+            #     return {'daily': df_spend_rech_daily,
+            #             'weekly': df_spend_rech_weekly,
+            #             'month_amount': df_month_price,
+            #             'price': df_price_for_learn,
+            #             'spending': df_spend_for_learn}
+        else:
+            logger.info(f'数据源为空！')
+            return False
 
     # 生成周报读取与存储文件名和路径
     def gen_filepath(self):
@@ -69,42 +166,6 @@ class WeekReport():
                    last_Saturday.strftime('%Y%m%d') + '.xlsx'
         self.write_filepath = self.main_path.joinpath(filename)
         return True
-
-    # 按flag筛选数据
-    def select_by_flag(self):
-        if not self.df_mon_week_day.empty:
-            # 筛选本月数据
-            df_this_month = self.df_mon_week_day[self.df_mon_week_day['flag'] == 'this_month'].drop(columns=['flag'])
-            df_this_month.insert(0, '时间', df_this_month.pop('时间').apply(lambda x: datetime.strptime(x, '%Y-%m-%d')))
-            # 筛选上月数据
-            df_last_month = self.df_mon_week_day[self.df_mon_week_day['flag'] == 'last_month'].drop(columns=['flag'])
-            df_last_month.insert(0, '时间', df_last_month.pop('时间').apply(lambda x: datetime.strptime(x, '%Y-%m-%d')))
-            # 筛选分周数据
-            df_week = self.df_mon_week_day[self.df_mon_week_day['flag'] == 'week'].drop(columns=['flag'])
-            df_week = df_week.rename(columns={'时间': '周时间'})
-            # 筛选上月同期总充值和本月总充值、目前天数和本月总天数
-            df_price_days = self.df_mon_week_day[self.df_mon_week_day['flag'] == 'day']
-            df_price_days = df_price_days[['充值金额', '时间']]
-            is_MW_empty = False
-        else:
-            is_MW_empty = True
-            logger.info(f'月同期和分周数据为空！')
-        if not self.df_ROI_month.empty:
-            self.df_ROI_month.insert(1, '时间', self.df_ROI_month.pop('时间').apply(lambda x: datetime.strptime(x, '%Y-%m-%d')))
-            # 去年同月
-            df_ROI_last_year = self.df_ROI_month[self.df_ROI_month['flag'] == 'last_year_month'].drop(columns=['flag'])
-            # 上月
-            df_ROI_last_month = self.df_ROI_month[self.df_ROI_month['flag'] == 'last_month'].drop(columns=['flag'])
-            # 本月
-            df_ROI_this_month = self.df_ROI_month[self.df_ROI_month['flag'] == 'this_month'].drop(columns=['flag'])
-            is_ROI_empty = False
-        else:
-            is_ROI_empty = True
-            logger.info(f'分月ROI数据为空！')
-        # 如果月同期、分周数据和分月ROI数据都不为空
-        if not (is_MW_empty | is_ROI_empty):
-            return [df_price_days, df_this_month, df_last_month, df_week, df_ROI_this_month,
-                            df_ROI_last_month, df_ROI_last_year]
 
     # 通过钉钉机器人发送信息
     def send_message(self):
@@ -167,16 +228,15 @@ class WeekReport():
         if self.read_source():
             s2 = time.perf_counter()
             logger.info(f'数据源读取成功！读取的时间为{s2 - s1: .2f}秒.')
-            self.gen_filepath()
-            list_data = self.select_by_flag()
+            list_data = self.select_by_category()
             if list_data:
                 s3 = time.perf_counter()
                 logger.info(f'数据筛选完成！筛选的时间为{s3 - s2: .2f}秒.')
-                self.save_to_excel(self.read_filepath, self.write_filepath,
-                                   ['B1', 'A8', 'O8', 'AC8', 'AR8', 'AY8', 'BF8'],
-                                   list_data)
-                self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
-                self.send_message()
+                # self.save_to_excel(self.read_filepath, self.write_filepath,
+                #                    ['B1', 'A8', 'O8', 'AC8', 'AR8', 'AY8', 'BF8'],
+                #                    list_data)
+                # self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
+                # self.send_message()
 
 
 def main():
