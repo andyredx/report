@@ -279,15 +279,15 @@ class WeekReport():
         wb = app.books.open(read_filepath)
         try:
             sht_source = wb.sheets['数据源']
-            sht_source.range('A8:BO2000').clear()
+            sht_source.range('A6:BO2000').clear()
             for range_n, df in zip(range_list, df_list):
                 sht_source.range(range_n).options(index=False).value = df
-            sht_target = wb.sheets['进度及目标']
-            sht_target.range('C30:J34').value = sht_target.range('C31:J35').value
-            sht_target.range('C57:I64').value = sht_target.range('C66:I73').value
+            # sht_target = wb.sheets['进度及目标']
+            # sht_target.range('C30:J34').value = sht_target.range('C31:J35').value
+            # sht_target.range('C57:I64').value = sht_target.range('C66:I73').value
             s1 = time.perf_counter()
             logger.info(f'读取上周周报的时间为{s1 - s0: .2f}秒.')
-            wb.api.RefreshAll()
+            # wb.api.RefreshAll()
             s2 = time.perf_counter()
             logger.info(f'刷新数据的时间为{s2 - s1: .2f}秒.')
             wb.save(write_filepath)
@@ -356,10 +356,12 @@ class WeekReport():
                         {'amount_target': [self.target_amount_lastmonth, self.target_amount_thismonth]}))
 
                     self.save_to_excel(self.read_filepath, self.write_filepath,
-                                       ['B1', 'A8', 'O8', 'AC8', 'AR8', 'AY8', 'BF8'],
-                                       list_data)
+                                       ['A1','A6','P6','W6','AH6','AR6'],
+                                       [list_data['month_amount'],list_data['monthly'],
+                                        list_data['daily'],self.df_spliced_pred_all,
+                                        self.df_target_thismonth,list_data['weekly']])
                     self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
-                    self.send_message()
+                    # self.send_message()
 
 
 def main():
