@@ -33,6 +33,7 @@ class WeekReport():
         self.df_source = None
         self.df_target_thismonth = None
         self.df_target_lastmonth = None
+        self.df_target_weekly = pd.DataFrame()
         self.target_amount_thismonth = None
         self.target_amount_lastmonth = None
         self.train_or_not = True
@@ -91,10 +92,12 @@ class WeekReport():
     # 清洗目标分表的列名
     def transfer_target_column(self, df_target):
         df_target = df_target.rename(columns={'渠道': 'channel_name','受众': 'orientate',
-                                                        '月预算': 'month_spend','月导量': 'month_ndev',
-                                                        '月ROI': 'month_ROI','周ROI': 'week_ROI',
-                                                        '月充值金额': 'month_price','次留率': 'retent_rate'})
-        df_target = df_target.drop(columns=['日均预算','日均导量','成本(CPI)','预算占比','量级占比','充值占比'])
+                                              '月预算': 'month_spend','月导量': 'month_ndev',
+                                              '日均预算': 'spend_daily', '日均导量': 'ndev_daily',
+                                              '月ROI': 'month_ROI','周ROI': 'week_ROI',
+                                              '月充值金额': 'month_price','次留率': 'retent_rate'})
+        df_target['week_ad_price'] = df_target.apply(lambda x: x.spend_daily * 7 * x.week_ROI, axis=1)
+        df_target = df_target.drop(columns=['week_ROI','成本(CPI)','预算占比','量级占比','充值占比'])
         # 筛选月流水目标
         df_target_amount = df_target[df_target['channel_name'] == '月流水'].reset_index(drop=True)
         target_amount = df_target_amount.loc[0, 'month_price']
@@ -112,7 +115,7 @@ class WeekReport():
             df_ROI_daily = self.df_source[(self.df_source['category'] == 'this_month') |
                                             (self.df_source['category'] == 'last_month') |
                                             (self.df_source['category'] == 'last_year_month')][[
-                'category','dates','channel_type','spending','price']]
+                'category','dates','channel_type','spending','num_dev','price']]
             df_ROI_daily = df_ROI_daily.rename(columns={'category': 'month_category'})
             # 计算本月各个日期
             self.date_max_str = df_ROI_daily['dates'].max()
@@ -215,7 +218,36 @@ class WeekReport():
             history_this_month = history_this_month.rename(columns={'spending': 'pred_spend'})
         return history_this_month.append(forecast_data).reset_index(drop=True)
 
-    # 生成周报读取与存储文件名和路径
+    # 根据周起始日期生成周目标
+    def gen_target_week(self):
+        nweeks = 0
+        list_names = ['本周', '前一周', '前两周', '前三周', '前四周']
+        while nweeks < 5:
+            last_n_Sunday = self.date_max - timedelta(days=1 + nweeks * 7 + self.date_max.weekday())
+            gap_days = last_n_Sunday - self.thismonth_firstday
+            # 周天数大部分在上个月
+            if gap_days.days < 0 and abs(gap_days.days) > 3:
+                self.df_target_weekly = self.df_target_weekly.append(pd.DataFrame({
+                    'week_category': [list_names[nweeks]],
+                    'week_spend': [7 * self.df_target_lastmonth.loc[:, 'spend_daily'].sum()],
+                    'week_ndev': [7 * self.df_target_lastmonth.loc[:, 'ndev_daily'].sum()],
+                    'week_or_ndev': [7 * self.df_target_lastmonth[self.df_target_lastmonth['channel_name'] == '自然渠道'
+                                                                  ].loc[:, 'ndev_daily'].sum()],
+                    'week_ad_price': [self.df_target_lastmonth.loc[:, 'week_ad_price'].sum()]}))
+            else:
+                self.df_target_weekly = self.df_target_weekly.append(pd.DataFrame({
+                    'week_category': [list_names[nweeks]],
+                    'week_spend': [7 * self.df_target_thismonth.loc[:, 'spend_daily'].sum()],
+                    'week_ndev': [7 * self.df_target_thismonth.loc[:, 'ndev_daily'].sum()],
+                    'week_or_ndev': [7 * self.df_target_thismonth[self.df_target_lastmonth['channel_name'] == '自然渠道'
+                                                                  ].loc[:, 'ndev_daily'].sum()],
+                    'week_ad_price': [self.df_target_thismonth.loc[:, 'week_ad_price'].sum()]}))
+            nweeks += 1
+        self.df_target_weekly = self.df_target_weekly.reset_index(drop=True)
+
+        # 生成周报读取与存储文件名和路径
+
+    # 生成报告读取与存储文件名和路径
     def gen_filepath(self):
         report_filepath = self.main_path.joinpath('周报')
         nweeks = 1
@@ -242,6 +274,23 @@ class WeekReport():
         else:
             logger.info(f"请确保[{report_filepath}]存放有近期周报!")
             return False
+
+    # 将实际月流水和月流水目标合并,计算计划目标完成度数据
+    def cal_target_data(self, df_month_amount):
+        df_month_amount = df_month_amount.join(pd.DataFrame(
+            {'amount_target': [self.target_amount_lastmonth, self.target_amount_thismonth]}))
+        # 计算计划花费完成度、计划充值金额完成度、计划ROI完成度
+        df_temp = self.df_spliced_pred_all.set_index('dates')
+        plan_spend_complete = df_temp.loc[self.date_max_str, 'cum_spend'] / \
+                                   df_temp.loc[self.thismonth_lastday.strftime('%Y-%m-%d'), 'cum_spend']
+        plan_price_complete = df_temp.loc[self.date_max_str, 'cum_price'] / \
+                                   df_temp.loc[self.thismonth_lastday.strftime('%Y-%m-%d'), 'cum_price']
+        plan_ROI_complete = plan_price_complete / plan_spend_complete
+        # 将月流水表和月总天数以及计划完成度合并
+        df_month_amount = df_month_amount.join(pd.DataFrame(
+            {'plan_spend_complete': [None, plan_spend_complete], 'plan_price_complete': [None, plan_price_complete],
+             'plan_ROI_complete': [None, plan_ROI_complete]}))
+        return df_month_amount
 
     # 通过钉钉机器人发送信息
     def send_message(self):
@@ -282,11 +331,8 @@ class WeekReport():
             sht_source.range('A6:BO2000').clear()
             for range_n, df in zip(range_list, df_list):
                 sht_source.range(range_n).options(index=False).value = df
-            # sht_target = wb.sheets['进度及目标']
-            # sht_target.range('C30:J34').value = sht_target.range('C31:J35').value
-            # sht_target.range('C57:I64').value = sht_target.range('C66:I73').value
             s1 = time.perf_counter()
-            logger.info(f'读取上周周报的时间为{s1 - s0: .2f}秒.')
+            logger.info(f'读取上次周报的时间为{s1 - s0: .2f}秒.')
             # wb.api.RefreshAll()
             s2 = time.perf_counter()
             logger.info(f'刷新数据的时间为{s2 - s1: .2f}秒.')
@@ -314,6 +360,7 @@ class WeekReport():
                     logger.info(f'计划与目标读取成功！读取的时间为{s4 - s3: .2f}秒.')
                     self.df_target_thismonth, self.target_amount_thismonth = self.transfer_target_column(self.df_target_thismonth)
                     self.df_target_lastmonth, self.target_amount_lastmonth = self.transfer_target_column(self.df_target_lastmonth)
+                    self.gen_target_week()
                     if self.train_or_not:
                         price_advert_train, price_organic_train, spend_train = self.split_train_data(list_data['price'],
                                                                                                      list_data['spending'])
@@ -351,17 +398,17 @@ class WeekReport():
                     self.df_spliced_pred_all['cum_ad_price'] = self.df_spliced_pred_all['ad_pred_price'].cumsum()
                     self.df_spliced_pred_all['cum_or_price'] = self.df_spliced_pred_all['or_pred_price'].cumsum()
                     self.df_spliced_pred_all['cum_price'] = self.df_spliced_pred_all['pred_price'].cumsum()
-                    # 将实际月流水和月流水目标合并
-                    list_data['month_amount'] = list_data['month_amount'].join(pd.DataFrame(
-                        {'amount_target': [self.target_amount_lastmonth, self.target_amount_thismonth]}))
+                    # 将实际月流水和月流水目标合并,计算计划目标完成度数据
+                    list_data['month_amount'] = self.cal_target_data(list_data['month_amount'])
 
                     self.save_to_excel(self.read_filepath, self.write_filepath,
-                                       ['A1','A6','P6','W6','AH6','AR6'],
-                                       [list_data['month_amount'],list_data['monthly'],
-                                        list_data['daily'],self.df_spliced_pred_all,
-                                        self.df_target_thismonth,list_data['weekly']])
+                                       ['A1','A6','P6','X6','AI6','AU6','BB6'],
+                                       [list_data['month_amount'], list_data['monthly'],
+                                        list_data['daily'], self.df_spliced_pred_all,
+                                        self.df_target_thismonth, self.df_target_weekly,
+                                        list_data['weekly']])
                     self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
-                    # self.send_message()
+                    self.send_message()
 
 
 def main():
