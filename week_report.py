@@ -333,7 +333,7 @@ class WeekReport():
                 sht_source.range(range_n).options(index=False).value = df
             s1 = time.perf_counter()
             logger.info(f'读取上次周报的时间为{s1 - s0: .2f}秒.')
-            # wb.api.RefreshAll()
+            wb.api.RefreshAll()
             s2 = time.perf_counter()
             logger.info(f'刷新数据的时间为{s2 - s1: .2f}秒.')
             wb.save(write_filepath)
