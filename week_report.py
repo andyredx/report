@@ -227,25 +227,22 @@ class WeekReport():
             gap_days = last_n_Sunday - self.thismonth_firstday
             # 周天数大部分在上个月
             if gap_days.days < 0 and abs(gap_days.days) > 3:
-                self.df_target_weekly = self.df_target_weekly.append(pd.DataFrame({
-                    'week_category': [list_names[nweeks]],
-                    'week_spend': [7 * self.df_target_lastmonth.loc[:, 'spend_daily'].sum()],
-                    'week_ndev': [7 * self.df_target_lastmonth.loc[:, 'ndev_daily'].sum()],
-                    'week_or_ndev': [7 * self.df_target_lastmonth[self.df_target_lastmonth['channel_name'] == '自然渠道'
-                                                                  ].loc[:, 'ndev_daily'].sum()],
-                    'week_ad_price': [self.df_target_lastmonth.loc[:, 'week_ad_price'].sum()]}))
+                self.df_target_weekly = self.df_target_weekly.append({
+                    'week_category': list_names[nweeks],
+                    'week_spend': 7 * self.df_target_lastmonth.loc[:, 'spend_daily'].sum(),
+                    'week_ndev': 7 * self.df_target_lastmonth.loc[:, 'ndev_daily'].sum(),
+                    'week_or_ndev': 7 * self.df_target_lastmonth[self.df_target_lastmonth['channel_name'] == '自然渠道'
+                                                                  ].loc[:, 'ndev_daily'].sum(),
+                    'week_ad_price': self.df_target_lastmonth.loc[:, 'week_ad_price'].sum()}, ignore_index=True)
             else:
-                self.df_target_weekly = self.df_target_weekly.append(pd.DataFrame({
-                    'week_category': [list_names[nweeks]],
-                    'week_spend': [7 * self.df_target_thismonth.loc[:, 'spend_daily'].sum()],
-                    'week_ndev': [7 * self.df_target_thismonth.loc[:, 'ndev_daily'].sum()],
-                    'week_or_ndev': [7 * self.df_target_thismonth[self.df_target_lastmonth['channel_name'] == '自然渠道'
-                                                                  ].loc[:, 'ndev_daily'].sum()],
-                    'week_ad_price': [self.df_target_thismonth.loc[:, 'week_ad_price'].sum()]}))
+                self.df_target_weekly = self.df_target_weekly.append({
+                    'week_category': list_names[nweeks],
+                    'week_spend': 7 * self.df_target_thismonth.loc[:, 'spend_daily'].sum(),
+                    'week_ndev': 7 * self.df_target_thismonth.loc[:, 'ndev_daily'].sum(),
+                    'week_or_ndev': 7 * self.df_target_thismonth[self.df_target_lastmonth['channel_name'] == '自然渠道'
+                                                                  ].loc[:, 'ndev_daily'].sum(),
+                    'week_ad_price': self.df_target_thismonth.loc[:, 'week_ad_price'].sum()}, ignore_index=True)
             nweeks += 1
-        self.df_target_weekly = self.df_target_weekly.reset_index(drop=True)
-
-        # 生成周报读取与存储文件名和路径
 
     # 生成报告读取与存储文件名和路径
     def gen_filepath(self):
