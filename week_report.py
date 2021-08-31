@@ -408,6 +408,9 @@ class WeekReport():
                                         list_data['weekly']])
                     self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
                     self.send_message()
+        else:
+            logger.info(f'[{self.source_filepath}]目录下没有文件！\n请重新检查文件存放路径！')
+            return False
 
 
 def main():

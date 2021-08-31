@@ -481,6 +481,9 @@ class DailyReport():
                                        [list_data['month_amount'],list_data['daily'],
                                         list_data['weekly'],self.df_spliced_pred_all,
                                         self.df_target])
+        else:
+            logger.info(f'[{self.source_filepath}]目录下没有文件！\n请重新检查文件存放路径！')
+            return False
 
 
 def main():
