@@ -222,6 +222,8 @@ class WeekReport():
     def gen_target_week(self):
         nweeks = 0
         list_names = ['本周', '前一周', '前两周', '前三周', '前四周']
+        self.df_target_weekly = pd.DataFrame(
+            columns=['week_category', 'week_spend', 'week_ndev', 'week_or_ndev', 'week_ad_price'])
         while nweeks < 5:
             last_n_Sunday = self.date_max - timedelta(days=1 + nweeks * 7 + self.date_max.weekday())
             gap_days = last_n_Sunday - self.thismonth_firstday
