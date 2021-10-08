@@ -78,6 +78,7 @@ class DailyReport():
         self.num_dev_all = None
         self.num_dev_all_pct = None
         self.num_dev_or = None
+        self.num_dev_bu = None
         self.num_dev_core = None
         self.num_dev_or_core = None
         self.num_dev_ad_core = None
@@ -276,7 +277,7 @@ class DailyReport():
         self.cumulate_all_ROI = self.cumulate_all_price / self.cumulate_spend
         # 计算累计广告ROI
         self.cumulate_ad_ROI = self.cumulate_ad_price / self.cumulate_spend
-        # 按渠道类型分组计算花费和充值
+        # 按渠道名称和受众分组计算花费和充值
         df_channel_orient_group = df_spend_rech_daily.groupby([
             'channel_name','orientate'])[['spending','num_dev','num_rech_dev','price']].sum()
         # 合并计划目标和实际数据
@@ -311,6 +312,11 @@ class DailyReport():
         self.price_ad = df_channel_type_group_daily.loc[('广告',self.date_max_str), 'price']
         self.num_dev_or = df_channel_type_group_daily.loc[('自然', self.date_max_str), 'num_dev']
         self.price_or = df_channel_type_group_daily.loc[('自然',self.date_max_str), 'price']
+        # 按渠道名称和日期分组计算花费和量级
+        df_channel_group_daily = df_spend_rech_daily.groupby([
+            'channel_name', 'dates'])[['spending', 'num_dev', 'num_rech_dev', 'price']].sum()
+        # 计算昨日商务量级
+        self.num_dev_bu = df_channel_group_daily.loc[('商务', self.date_max_str), 'num_dev']
         # 将花费表按激活日期和受众分组
         df_orient_group_daily = df_spend_rech_daily.groupby(['orientate','dates'])[['spending','num_dev','price']].sum()
         # 昨日核心量级
@@ -467,7 +473,8 @@ class DailyReport():
                                       f"昨日花费${self.spend_all / 1000: .2f}k，" \
                                       f"环比{'上升' if self.spend_all_pct > 0 else '下降'}{abs(self.spend_all_pct): .2%};\n" \
                                       f"昨日量级{self.num_dev_all / 1000: .1f}k，自然量级{self.num_dev_or / 1000: .1f}k，" \
-                                      f"自然占比{self.num_dev_or / self.num_dev_all: .2%};\n" \
+                                      f"自然占比{self.num_dev_or / self.num_dev_all: .2%}；" \
+                                      f"商务量级{self.num_dev_bu / 1000: .2f}k，商务占比{self.num_dev_bu / self.num_dev_all: .2%};\n" \
                                       f"昨日核心量级{self.num_dev_core / 1000: .1f}k，" \
                                       f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}，" \
                                       f"其中，自然核心量级{self.num_dev_or_core / 1000: .1f}k，" \
