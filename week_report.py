@@ -241,7 +241,7 @@ class WeekReport():
                     'week_category': list_names[nweeks],
                     'week_spend': 7 * self.df_target_thismonth.loc[:, 'spend_daily'].sum(),
                     'week_ndev': 7 * self.df_target_thismonth.loc[:, 'ndev_daily'].sum(),
-                    'week_or_ndev': 7 * self.df_target_thismonth[self.df_target_lastmonth['channel_name'] == '自然渠道'
+                    'week_or_ndev': 7 * self.df_target_thismonth[self.df_target_thismonth['channel_name'] == '自然渠道'
                                                                   ].loc[:, 'ndev_daily'].sum(),
                     'week_ad_price': self.df_target_thismonth.loc[:, 'week_ad_price'].sum()}, ignore_index=True)
             nweeks += 1
