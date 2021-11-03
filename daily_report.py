@@ -26,7 +26,7 @@ logger = logging.getLogger("daily_report")
 class DailyReport():
     def __init__(self):
         self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组报告')
-        self.source_filepath = self.main_path.joinpath('数据源', 'data_daily.csv')
+        self.source_filepath = None
         self.target_filepath = self.main_path.joinpath('数据源', '投放计划与目标.xlsx')
         self.target_sheetname = None
         self.df_source = None
@@ -94,7 +94,7 @@ class DailyReport():
         return df
 
     # 读取excel文件，返回dataframe
-    def read_excel(self, filepath, sheetName):
+    def read_excel(self, filepath, sheetName=0):
         df = pd.DataFrame()
         try:
             df = pd.read_excel(filepath, sheet_name = sheetName)
@@ -103,9 +103,17 @@ class DailyReport():
             logger.exception(f'从[{filepath}]读取数据失败，错误原因：{e}')
         return df
 
-    # 读取数据源
+    # 读取数据源,若存在csv或者xlsx格式文件则读取并返回True,否则返回False
     def read_source(self):
-        self.df_source = self.read_csv(self.source_filepath)
+        self.source_filepath = self.main_path.joinpath('数据源', 'data_daily.csv')
+        if self.source_filepath.exists():
+            self.df_source = self.read_csv(self.source_filepath)
+        else:
+            self.source_filepath = self.main_path.joinpath('数据源', 'data_daily.xlsx')
+            if self.source_filepath.exists():
+                self.df_source = self.read_excel(self.source_filepath)
+            else:
+                return False
         return True
 
     # 读取投放计划与目标
@@ -119,14 +127,14 @@ class DailyReport():
 
     # 清洗目标分表的列名
     def transfer_target_column(self):
-        self.df_target = self.df_target.rename(columns={'渠道': 'channel_name','受众': 'orientate',
+        self.df_target = self.df_target.rename(columns={'渠道': 'channel_name','地理区域': 'region',
                                                         '月预算': 'month_spend','月导量': 'month_ndev',
                                                         '月ROI': 'month_ROI','周ROI': 'week_ROI',
                                                         '月充值金额': 'month_price','次留率': 'retent_rate'})
         self.df_target = self.df_target.drop(columns=['日均预算','日均导量','成本(CPI)','预算占比','量级占比','充值占比'])
         # 筛选月流水目标
         self.df_target_amount = self.df_target[self.df_target['channel_name'] == '月流水'].drop(columns=[
-                'channel_name','orientate','month_spend','month_ndev','month_ROI','week_ROI','retent_rate'])
+                'channel_name','region','month_spend','month_ndev','month_ROI','week_ROI','retent_rate'])
         self.df_target_amount = self.df_target_amount.rename(columns={'month_price': 'amount_target'}).reset_index(drop=True)
         # 筛选非月流水目标
         self.df_target = self.df_target[self.df_target['channel_name'] != '月流水']
@@ -277,11 +285,11 @@ class DailyReport():
         self.cumulate_all_ROI = self.cumulate_all_price / self.cumulate_spend
         # 计算累计广告ROI
         self.cumulate_ad_ROI = self.cumulate_ad_price / self.cumulate_spend
-        # 按渠道名称和受众分组计算花费和充值
+        # 按渠道名称和地理区域计算花费和充值
         df_channel_orient_group = df_spend_rech_daily.groupby([
-            'channel_name','orientate'])[['spending','num_dev','num_rech_dev','price']].sum()
+            'channel_name','region'])[['spending','num_dev','num_rech_dev','price']].sum()
         # 合并计划目标和实际数据
-        self.df_target = self.df_target.join(df_channel_orient_group, on=['channel_name','orientate'])
+        self.df_target = self.df_target.join(df_channel_orient_group, on=['channel_name','region'])
         # 计算花费、充值金额和ROI实际完成度
         self.spend_complete = self.cumulate_spend / self.month_spend_target
         self.price_complete = self.cumulate_all_price / self.month_price_target
@@ -318,14 +326,14 @@ class DailyReport():
         # 计算昨日商务量级
         self.num_dev_bu = df_channel_group_daily.loc[('商务', self.date_max_str), 'num_dev']
         # 将花费表按激活日期和受众分组
-        df_orient_group_daily = df_spend_rech_daily.groupby(['orientate','dates'])[['spending','num_dev','price']].sum()
-        # 昨日核心量级
-        self.num_dev_core = df_orient_group_daily.loc[('核心',self.date_max_str), 'num_dev']
-        # 昨日自然核心量级
-        df_channel_orient_group_daily = df_spend_rech_daily.groupby(['channel_type', 'orientate', 'dates'])[
+        df_orient_group_daily = df_spend_rech_daily.groupby(['region','dates'])[['spending','num_dev','price']].sum()
+        # 昨日中东T1量级
+        self.num_dev_core = df_orient_group_daily.loc[('中东T1',self.date_max_str), 'num_dev']
+        # 昨日自然中东T1量级
+        df_channel_orient_group_daily = df_spend_rech_daily.groupby(['channel_type', 'region', 'dates'])[
             ['spending', 'num_dev', 'price']].sum()
-        self.num_dev_or_core = df_channel_orient_group_daily.loc[('自然','核心',self.date_max_str), 'num_dev']
-        # 昨日广告核心量级
+        self.num_dev_or_core = df_channel_orient_group_daily.loc[('自然','中东T1',self.date_max_str), 'num_dev']
+        # 昨日广告中东T1量级
         self.num_dev_ad_core = self.num_dev_core - self.num_dev_or_core
         return True
 
@@ -475,10 +483,10 @@ class DailyReport():
                                       f"昨日量级{self.num_dev_all / 1000: .1f}k，自然量级{self.num_dev_or / 1000: .1f}k，" \
                                       f"自然占比{self.num_dev_or / self.num_dev_all: .2%}；" \
                                       f"商务量级{self.num_dev_bu / 1000: .2f}k，商务占比{self.num_dev_bu / self.num_dev_all: .2%};\n" \
-                                      f"昨日核心量级{self.num_dev_core / 1000: .1f}k，" \
-                                      f"核心量级占比{self.num_dev_core / self.num_dev_all: .2%}，" \
-                                      f"其中，自然核心量级{self.num_dev_or_core / 1000: .1f}k，" \
-                                      f"广告核心量级{self.num_dev_ad_core / 1000: .1f}k.\n" \
+                                      f"昨日中东T1量级{self.num_dev_core / 1000: .1f}k，" \
+                                      f"中东T1量级占比{self.num_dev_core / self.num_dev_all: .2%}，" \
+                                      f"其中，自然中东T1量级{self.num_dev_or_core / 1000: .1f}k，" \
+                                      f"广告中东T1量级{self.num_dev_ad_core / 1000: .1f}k.\n" \
                                       f"详情见 {self.main_path.joinpath('日报')}"
                     self.send_message()
 
