@@ -105,13 +105,13 @@ class DailyReport():
 
     # 读取数据源,若存在csv或者xlsx格式文件则读取并返回True,否则返回False
     def read_source(self):
-        self.source_filepath = self.main_path.joinpath('数据源', 'data_daily.csv')
+        self.source_filepath = self.main_path.joinpath('数据源', 'data_daily.xlsx')
         if self.source_filepath.exists():
-            self.df_source = self.read_csv(self.source_filepath)
+            self.df_source = self.read_excel(self.source_filepath)
         else:
-            self.source_filepath = self.main_path.joinpath('数据源', 'data_daily.xlsx')
+            self.source_filepath = self.main_path.joinpath('数据源', 'data_daily.csv')
             if self.source_filepath.exists():
-                self.df_source = self.read_excel(self.source_filepath)
+                self.df_source = self.read_csv(self.source_filepath)
             else:
                 return False
         return True

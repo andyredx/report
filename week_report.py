@@ -26,7 +26,7 @@ logger = logging.getLogger("week_report")
 class WeekReport():
     def __init__(self):
         self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组报告')
-        self.source_filepath = self.main_path.joinpath('数据源', 'data_weekly.csv')
+        self.source_filepath = None
         self.target_filepath = self.main_path.joinpath('数据源', '投放计划与目标.xlsx')
         self.target_sheetname_thismonth = None
         self.target_sheetname_lastmonth = None
@@ -64,7 +64,7 @@ class WeekReport():
         return df
 
     # 读取excel文件，返回dataframe
-    def read_excel(self, filepath, sheetName):
+    def read_excel(self, filepath, sheetName=0):
         df = pd.DataFrame()
         try:
             df = pd.read_excel(filepath, sheet_name = sheetName)
@@ -73,9 +73,17 @@ class WeekReport():
             logger.exception(f'从[{filepath}]的分表[{sheetName}]读取数据失败，错误原因：{e}')
         return df
 
-    # 读取数据源
+    # 读取数据源,若存在csv或者xlsx格式文件则读取并返回True,否则返回False
     def read_source(self):
-        self.df_source = self.read_csv(self.source_filepath)
+        self.source_filepath = self.main_path.joinpath('数据源', 'data_weekly.xlsx')
+        if self.source_filepath.exists():
+            self.df_source = self.read_excel(self.source_filepath)
+        else:
+            self.source_filepath = self.main_path.joinpath('数据源', 'data_weekly.csv')
+            if self.source_filepath.exists():
+                self.df_source = self.read_csv(self.source_filepath)
+            else:
+                return False
         return True
 
     # 读取投放计划与目标
@@ -91,7 +99,7 @@ class WeekReport():
 
     # 清洗目标分表的列名
     def transfer_target_column(self, df_target):
-        df_target = df_target.rename(columns={'渠道': 'channel_name','受众': 'orientate',
+        df_target = df_target.rename(columns={'渠道': 'channel_name','地理区域': 'region',
                                               '月预算': 'month_spend','月导量': 'month_ndev',
                                               '日均预算': 'spend_daily', '日均导量': 'ndev_daily',
                                               '月ROI': 'month_ROI','周ROI': 'week_ROI',
