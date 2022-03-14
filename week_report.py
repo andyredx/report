@@ -33,7 +33,6 @@ class WeekReport():
         self.df_source = None
         self.df_target_thismonth = None
         self.df_target_lastmonth = None
-        self.df_target_weekly = pd.DataFrame()
         self.target_amount_thismonth = None
         self.target_amount_lastmonth = None
         self.train_or_not = True
@@ -64,10 +63,10 @@ class WeekReport():
         return df
 
     # 读取excel文件，返回dataframe
-    def read_excel(self, filepath, sheetName=0):
+    def read_excel(self, filepath, sheetName=0, header: int=0):
         df = pd.DataFrame()
         try:
-            df = pd.read_excel(filepath, sheet_name = sheetName)
+            df = pd.read_excel(filepath, sheet_name = sheetName, header = header)
             logger.info(f'从[{filepath}]的分表[{sheetName}]读取数据成功！')
         except Exception as e:
             logger.exception(f'从[{filepath}]的分表[{sheetName}]读取数据失败，错误原因：{e}')
@@ -77,7 +76,7 @@ class WeekReport():
     def read_source(self):
         self.source_filepath = self.main_path.joinpath('数据源', 'data_weekly.xlsx')
         if self.source_filepath.exists():
-            self.df_source = self.read_excel(self.source_filepath)
+            self.df_source = self.read_excel(self.source_filepath, header=1)
         else:
             self.source_filepath = self.main_path.joinpath('数据源', 'data_weekly.csv')
             if self.source_filepath.exists():
@@ -99,13 +98,10 @@ class WeekReport():
 
     # 清洗目标分表的列名
     def transfer_target_column(self, df_target):
-        df_target = df_target.rename(columns={'渠道': 'channel_name','地理区域': 'region',
-                                              '月预算': 'month_spend','月导量': 'month_ndev',
-                                              '日均预算': 'spend_daily', '日均导量': 'ndev_daily',
-                                              '月ROI': 'month_ROI','周ROI': 'week_ROI',
-                                              '月充值金额': 'month_price','次留率': 'retent_rate'})
-        df_target['week_ad_price'] = df_target.apply(lambda x: x.spend_daily * 7 * x.week_ROI, axis=1)
-        df_target = df_target.drop(columns=['week_ROI','成本(CPI)','预算占比','量级占比','充值占比'])
+        df_target = df_target.rename(columns={'渠道': 'channel_name','平台': 'platform',
+                                              '设备类型': 'dev_type','月预算': 'month_spend',
+                                              '月导量': 'month_ndev','月充值金额': 'month_price',
+                                              '次留率': 'retent_rate'})
         # 筛选月流水目标
         df_target_amount = df_target[df_target['channel_name'] == '月流水'].reset_index(drop=True)
         target_amount = df_target_amount.loc[0, 'month_price']
@@ -123,7 +119,7 @@ class WeekReport():
             df_ROI_daily = self.df_source[(self.df_source['category'] == 'this_month') |
                                             (self.df_source['category'] == 'last_month') |
                                             (self.df_source['category'] == 'last_year_month')][[
-                'category','dates','channel_type','spending','num_dev','price']]
+                'category','dates','dev_type','spending','num_dev','price']]
             df_ROI_daily = df_ROI_daily.rename(columns={'category': 'month_category'})
             # 计算本月各个日期
             self.date_max_str = df_ROI_daily['dates'].max()
@@ -141,47 +137,46 @@ class WeekReport():
             df_weekly = self.df_source[self.df_source['category'] == 'weekly'].drop(columns=['category'])
             df_weekly = df_weekly.rename(columns={'dates': 'act_weeks'})
             # 筛选月流水数据
-            df_month_price = self.df_source[self.df_source['category'] == 'month_amount'][['dates','channel_type','price']]
-            df_month_price = df_month_price[df_month_price['channel_type'] != 'last_year_month']
+            df_month_price = self.df_source[self.df_source['category'] == 'month_amount'][['dates','channel_name','price']]
+            df_month_price = df_month_price[df_month_price['channel_name'] != 'last_year_month']
             df_month_price = df_month_price.rename(columns={'dates': 'now_days',
-                                                            'channel_type': 'month_category',
+                                                            'channel_name': 'month_category',
                                                             'price': 'month_price'}).reset_index(drop=True)
             # 月流水数据添加月度总天数
             df_month_price = pd.DataFrame({'total_days': [self.totaldays_lastmonth, self.totaldays_thismonth]}).join(df_month_price)
             df_month_price = df_month_price[['month_category','total_days','now_days','month_price']]
             # 是否有待训练数据，若无，则无需训练
-            if self.df_source[self.df_source['category'] == 'price'].empty:
+            if self.df_source[self.df_source['category'] == 'train'].empty:
                 self.train_or_not = False
-                return {'daily': df_ROI_daily,
-                        'weekly': df_weekly,
-                        'monthly': df_now_month,
-                        'month_amount': df_month_price}
-            else:
-                # 筛选待训练充值数据
-                df_price_for_learn = self.df_source[self.df_source['category'] == 'price'][['channel_type','dates','price']]
-                # 筛选待训练花费数据
-                df_spend_for_learn = self.df_source[self.df_source['category'] == 'spending'][['dates','spending']]
+                df_not_train = self.df_source[self.df_source['category'] == 'not_train'][['dates','dev_type','spending','price']]
                 return {'daily': df_ROI_daily,
                         'weekly': df_weekly,
                         'monthly': df_now_month,
                         'month_amount': df_month_price,
-                        'price': df_price_for_learn,
-                        'spending': df_spend_for_learn}
+                        'not_train': df_not_train}
+            else:
+                # 筛选待训练数据
+                df_for_train = self.df_source[self.df_source['category'] == 'train'][['dev_type','dates','spending','price']]
+                return {'daily': df_ROI_daily,
+                        'weekly': df_weekly,
+                        'monthly': df_now_month,
+                        'month_amount': df_month_price,
+                        'train': df_for_train}
         else:
             logger.info(f'数据源为空！')
             return False
 
-    # 指定训练数据与未来预测天数
-    def split_train_data(self, df_price_for_learn, df_spend_for_learn):
-        price_advert_train = df_price_for_learn[df_price_for_learn['channel_type'] == '广告'][['dates','price']].reset_index(drop=True)
-        price_organic_train = df_price_for_learn[df_price_for_learn['channel_type'] == '自然'][['dates','price']].reset_index(drop=True)
-        spend_train = df_spend_for_learn[['dates','spending']].reset_index(drop=True)
-        return price_advert_train, price_organic_train, spend_train
+    # 划分训练数据
+    def split_train_data(self, df_for_train):
+        price_act_train = df_for_train[df_for_train['dev_type'] == '新增'][['dates','price']].reset_index(drop=True)
+        price_lost_train = df_for_train[df_for_train['dev_type'] == '召回'][['dates','price']].reset_index(drop=True)
+        spend_train = df_for_train.groupby(['dates'], as_index=False)[['spending']].sum().reset_index(drop=True)
+        return price_act_train, price_lost_train, spend_train
 
     # 利用ARIMA模型预测未来数据
     def ARIMA_forecast(self, data_category, train_data, future_days):
-        if data_category == 'adPrice':
-            stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(seasonal_order=(1, 0, 1, 31)), seasonal=31, period=31)
+        if data_category == 'actPrice':
+            stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(1,1,1)), seasonal=31, period=31)
             stlf_res = stlf.fit()
             forecast = stlf_res.forecast(future_days).reset_index(drop=True)
             # 将预测值中的负值置为0
@@ -189,10 +184,10 @@ class WeekReport():
             df_forecast = pd.DataFrame(
                 {'dates': pd.Series(
                     pd.date_range(start=self.future_firstday.strftime('%Y-%m-%d'), periods=self.future_days)),
-                 'ad_pred_price': forecast})
+                 'act_pred_price': forecast})
 
-        elif data_category == 'orPrice':
-            stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(1,0,1)), seasonal=31, period=31)
+        elif data_category == 'lostPrice':
+            stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(1,1,1)), seasonal=31, period=31)
             stlf_res = stlf.fit()
             forecast = stlf_res.forecast(future_days).reset_index(drop=True)
             # 将预测值中的负值置为0
@@ -200,10 +195,10 @@ class WeekReport():
             df_forecast = pd.DataFrame(
                 {'dates': pd.Series(
                     pd.date_range(start=self.future_firstday.strftime('%Y-%m-%d'), periods=self.future_days)),
-                 'or_pred_price': forecast})
+                 'lost_pred_price': forecast})
 
         else:
-            stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(0, 1, 0)), period=31)
+            stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(0,1,0)), period=31)
             stlf_res = stlf.fit()
             forecast = stlf_res.forecast(future_days).reset_index(drop=True)
             # 将预测值中的负值置为0
@@ -218,10 +213,10 @@ class WeekReport():
     # 将预测好的花费和充值数据与本月历史数据拼接到一起
     def splice_history_forecast(self, history_data, forecast_data, category):
         history_this_month = history_data[history_data['dates'] >= self.thismonth_firstday.strftime('%Y-%m-%d')]
-        if category == 'adPrice':
-            history_this_month = history_this_month.rename(columns={'price': 'ad_pred_price'})
-        elif category == 'orPrice':
-            history_this_month = history_this_month.rename(columns={'price': 'or_pred_price'})
+        if category == 'actPrice':
+            history_this_month = history_this_month.rename(columns={'price': 'act_pred_price'})
+        elif category == 'lostPrice':
+            history_this_month = history_this_month.rename(columns={'price': 'lost_pred_price'})
         else:
             history_this_month = history_this_month.rename(columns={'spending': 'pred_spend'})
         return history_this_month.append(forecast_data).reset_index(drop=True)
@@ -367,18 +362,16 @@ class WeekReport():
                     logger.info(f'计划与目标读取成功！读取的时间为{s4 - s3: .2f}秒.')
                     self.df_target_thismonth, self.target_amount_thismonth = self.transfer_target_column(self.df_target_thismonth)
                     self.df_target_lastmonth, self.target_amount_lastmonth = self.transfer_target_column(self.df_target_lastmonth)
-                    self.gen_target_week()
                     if self.train_or_not:
-                        price_advert_train, price_organic_train, spend_train = self.split_train_data(list_data['price'],
-                                                                                                     list_data['spending'])
+                        price_act_train, price_lost_train, spend_train = self.split_train_data(list_data['train'])
                         # 先预测花费
                         df_forecast = self.ARIMA_forecast('spend', spend_train['spending'], self.future_days)
                         # dates字段日期格式从'%Y-%m-%d %H:%M:%S'更改为'%Y-%m-%d'
                         df_forecast['dates'] = df_forecast['dates'].dt.strftime('%Y-%m-%d')
                         self.df_spliced_pred_all = self.splice_history_forecast(spend_train, df_forecast, 'spend')
-                        # 预测广告和自然充值
-                        list_category = ['adPrice', 'orPrice']
-                        for train_data, category in zip([price_advert_train, price_organic_train], list_category):
+                        # 预测新增和召回充值
+                        list_category = ['actPrice', 'lostPrice']
+                        for train_data, category in zip([price_act_train, price_lost_train], list_category):
                             df_forecast = self.ARIMA_forecast(category, train_data['price'], self.future_days)
                             # dates字段日期格式从'%Y-%m-%d %H:%M:%S'更改为'%Y-%m-%d'
                             df_forecast['dates'] = df_forecast['dates'].dt.strftime('%Y-%m-%d')
@@ -388,32 +381,30 @@ class WeekReport():
                         s5 = time.perf_counter()
                         logger.info(f'训练历史数据并预测未来完成！训练预测的时间为{s5 - s4: .2f}秒.')
                     else:
-                        # 按渠道类型和日期分组计算花费和充值
-                        df_channel_type_daily = list_data['daily']
-                        df_channel_type_daily = df_channel_type_daily[df_channel_type_daily['month_category'] == 'this_month'].drop(columns=['month_category'])
-                        self.df_spliced_pred_all = df_channel_type_daily[df_channel_type_daily['channel_type'] == '广告'][[
-                        'dates','spending','price']].rename(columns={'spending': 'pred_spend','price': 'ad_pred_price'})
-                        df_rech_or = df_channel_type_daily[df_channel_type_daily['channel_type'] == '自然'][[
-                        'dates','price']].rename(columns={'price': 'or_pred_price'})
-                        self.df_spliced_pred_all = self.df_spliced_pred_all.join(df_rech_or.set_index('dates'),
+                        # 按设备类型筛选花费和充值
+                        df_not_train = list_data['not_train']
+                        self.df_spliced_pred_all = df_not_train[df_not_train['dev_type'] == '新增'][[
+                        'dates','spending','price']].rename(columns={'spending': 'pred_spend','price': 'act_pred_price'})
+                        df_rech_lost = df_not_train[df_not_train['dev_type'] == '召回'][[
+                        'dates','price']].rename(columns={'price': 'lost_pred_price'})
+                        self.df_spliced_pred_all = self.df_spliced_pred_all.join(df_rech_lost.set_index('dates'),
                                                                                  on='dates')
                     # 添加一列作为充值金额总和
                     self.df_spliced_pred_all['pred_price'] = self.df_spliced_pred_all.apply(
-                        lambda x: x.ad_pred_price + x.or_pred_price, axis=1)
+                        lambda x: x.act_pred_price + x.lost_pred_price, axis=1)
                     # 添加累计值
                     self.df_spliced_pred_all['cum_spend'] = self.df_spliced_pred_all['pred_spend'].cumsum()
-                    self.df_spliced_pred_all['cum_ad_price'] = self.df_spliced_pred_all['ad_pred_price'].cumsum()
-                    self.df_spliced_pred_all['cum_or_price'] = self.df_spliced_pred_all['or_pred_price'].cumsum()
+                    self.df_spliced_pred_all['cum_act_price'] = self.df_spliced_pred_all['act_pred_price'].cumsum()
+                    self.df_spliced_pred_all['cum_lost_price'] = self.df_spliced_pred_all['lost_pred_price'].cumsum()
                     self.df_spliced_pred_all['cum_price'] = self.df_spliced_pred_all['pred_price'].cumsum()
                     # 将实际月流水和月流水目标合并,计算计划目标完成度数据
                     list_data['month_amount'] = self.cal_target_data(list_data['month_amount'])
 
                     self.save_to_excel(self.read_filepath, self.write_filepath,
-                                       ['A1','A6','P6','X6','AI6','AU6','BB6'],
+                                       ['A1','A6','P6','X6','AI6','AU6'],
                                        [list_data['month_amount'], list_data['monthly'],
                                         list_data['daily'], self.df_spliced_pred_all,
-                                        self.df_target_thismonth, self.df_target_weekly,
-                                        list_data['weekly']])
+                                        self.df_target_thismonth, list_data['weekly']])
                     self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
                     self.send_message()
         else:
