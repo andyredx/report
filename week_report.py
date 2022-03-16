@@ -383,10 +383,14 @@ class WeekReport():
                     else:
                         # 按设备类型筛选花费和充值
                         df_not_train = list_data['not_train']
-                        self.df_spliced_pred_all = df_not_train[df_not_train['dev_type'] == '新增'][[
-                        'dates','spending','price']].rename(columns={'spending': 'pred_spend','price': 'act_pred_price'})
+                        self.df_spliced_pred_all = df_not_train.groupby(['dates'], as_index=False)[
+                            ['spending']].sum().reset_index(drop=True).rename(columns={'spending': 'pred_spend'})
+                        df_rech_act = df_not_train[df_not_train['dev_type'] == '新增'][[
+                            'dates', 'price']].rename(columns={'price': 'act_pred_price'})
                         df_rech_lost = df_not_train[df_not_train['dev_type'] == '召回'][[
-                        'dates','price']].rename(columns={'price': 'lost_pred_price'})
+                            'dates', 'price']].rename(columns={'price': 'lost_pred_price'})
+                        self.df_spliced_pred_all = self.df_spliced_pred_all.join(df_rech_act.set_index('dates'),
+                                                                                 on='dates')
                         self.df_spliced_pred_all = self.df_spliced_pred_all.join(df_rech_lost.set_index('dates'),
                                                                                  on='dates')
                     # 添加一列作为充值金额总和

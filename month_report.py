@@ -71,7 +71,7 @@ class MonthReport():
 
     # 读取数据源,若存在csv或者xlsx格式文件则读取并返回True,否则返回False
     def read_source(self):
-        self.source_filepath = self.main_path.joinpath('数据源', 'data_monthly_new.xlsx')
+        self.source_filepath = self.main_path.joinpath('数据源', 'data_monthly.xlsx')
         if self.source_filepath.exists():
             self.df_source = self.read_excel(self.source_filepath, header=1)
         else:
@@ -218,7 +218,7 @@ class MonthReport():
     # 将实际月流水和月流水目标合并,计算计划目标完成度数据
     def cal_target_data(self, df_month_amount):
         df_month_amount = df_month_amount.join(pd.DataFrame(
-            {'amount_target': [self.target_amount_lastmonth, self.target_amount_thismonth]}))
+            {'amount_target': [0, self.target_amount]}))
         # 计算计划花费完成度、计划充值金额完成度、计划ROI完成度
         df_temp = self.df_spliced_pred_all.set_index('dates')
         plan_spend_complete = df_temp.loc[self.date_max_str, 'cum_spend'] / \
@@ -343,11 +343,14 @@ class MonthReport():
                     else:
                         # 按设备类型筛选花费和充值
                         df_not_train = list_data['not_train']
-                        self.df_spliced_pred_all = df_not_train[df_not_train['dev_type'] == '新增'][[
-                            'dates', 'spending', 'price']].rename(
-                            columns={'spending': 'pred_spend', 'price': 'act_pred_price'})
+                        self.df_spliced_pred_all = df_not_train.groupby(['dates'], as_index=False)[
+                            ['spending']].sum().reset_index(drop=True).rename(columns={'spending': 'pred_spend'})
+                        df_rech_act = df_not_train[df_not_train['dev_type'] == '新增'][[
+                            'dates', 'price']].rename(columns={'price': 'act_pred_price'})
                         df_rech_lost = df_not_train[df_not_train['dev_type'] == '召回'][[
                             'dates', 'price']].rename(columns={'price': 'lost_pred_price'})
+                        self.df_spliced_pred_all = self.df_spliced_pred_all.join(df_rech_act.set_index('dates'),
+                                                                                 on='dates')
                         self.df_spliced_pred_all = self.df_spliced_pred_all.join(df_rech_lost.set_index('dates'),
                                                                                  on='dates')
                     # 添加一列作为充值金额总和
