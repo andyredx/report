@@ -173,7 +173,7 @@ class WeekReport():
         spend_train = df_for_train.groupby(['dates'], as_index=False)[['spending']].sum().reset_index(drop=True)
         return price_act_train, price_lost_train, spend_train
 
-    # 利用ARIMA模型预测未来数据
+    # 利用ARIMA模型预测未来充值数据，未来广告花费按照预算和实际求均值
     def ARIMA_forecast(self, data_category, train_data, future_days):
         if data_category == 'actPrice':
             stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(1,1,1)), seasonal=31, period=31)
@@ -197,16 +197,18 @@ class WeekReport():
                     pd.date_range(start=self.future_firstday.strftime('%Y-%m-%d'), periods=self.future_days)),
                  'lost_pred_price': forecast})
 
+        # 未来广告花费按照预算和近3日实际花费均值运算得出
         else:
-            stlf = STLForecast(train_data, ARIMA, model_kwargs=dict(order=(0,1,0)), period=31)
-            stlf_res = stlf.fit()
-            forecast = stlf_res.forecast(future_days).reset_index(drop=True)
-            # 将预测值中的负值置为0
-            forecast = forecast.apply(lambda x: 0 if x < 0 else x)
+            # 计划日均预算
+            daily_plan_spend = self.df_target_thismonth['month_spend'].sum(axis=0) / self.totaldays_thismonth
+            # 近3日平均每日实际花费
+            avg_spend_3D = train_data.iloc[-3:].mean(axis=0)
+            # 计划日均预算 和 近3日平均每日实际花费 求平均，得出未来日均每日广告花费
+            future_daily_spend = (daily_plan_spend + avg_spend_3D) / 2
             df_forecast = pd.DataFrame(
                 {'dates': pd.Series(
                     pd.date_range(start=self.future_firstday.strftime('%Y-%m-%d'), periods=self.future_days)),
-                 'pred_spend': forecast})
+                 'pred_spend': [future_daily_spend]*self.future_days})
 
         return df_forecast
 
