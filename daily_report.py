@@ -327,30 +327,32 @@ class DailyReport():
     # 通过钉钉机器人发送信息
     def send_message(self):
         headers = {'Content-Type': 'application/json'}
-        webhook = 'https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410'
+        webhooks = ['https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410',
+                   'https://oapi.dingtalk.com/robot/send?access_token=d3a8d4eec06d280c8868458584fc612e3b25cf952078bdda49322217e695f257']
         data = {
             "msgtype": "text",
             "text": {"content": self.daily_text},
             "isAtAll": True}
         try:
-            response = requests.post(webhook, data=json.dumps(data), headers=headers, timeout=8)
+            for webhook in webhooks:
+                response = requests.post(webhook, data=json.dumps(data), headers=headers, timeout=8)
+                if response.status_code == 200:
+                    dict_res = response.json()
+                    if dict_res['errcode'] == 310000:
+                        logging.info(f"消息发送失败！失败原因：{dict_res['errmsg']}")
+                        return False
+                    elif dict_res['errcode'] == 0:
+                        logging.info("消息发送成功！")
+                        return True
+                    return dict_res
+                elif response.status_code == 404:
+                    logging.info("该页面不存在！")
+                    return False
+                else:
+                    logging.info(f"消息发送失败！{response.status_code}错误")
+                    return False
         except Exception:
             logging.info("失去响应！")
-            return False
-        if response.status_code == 200:
-            dict_res = response.json()
-            if dict_res['errcode'] == 310000:
-                logging.info(f"消息发送失败！失败原因：{dict_res['errmsg']}")
-                return False
-            elif dict_res['errcode'] == 0:
-                logging.info("消息发送成功！")
-                return True
-            return dict_res
-        elif response.status_code == 404:
-            logging.info("该页面不存在！")
-            return False
-        else:
-            logging.info("消息发送失败！response.status_code错误")
             return False
 
     # 生成报告读取与存储文件名和路径

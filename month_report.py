@@ -283,7 +283,7 @@ class MonthReport():
             logging.info("该页面不存在！")
             return False
         else:
-            logging.info("消息发送失败！response.status_code错误")
+            logging.info(f"消息发送失败！{response.status_code}错误")
             return False
 
     # 将多个dataframe列表保存到excel,文件刷新并另存为write_filepath
