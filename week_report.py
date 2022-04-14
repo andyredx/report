@@ -28,6 +28,7 @@ class WeekReport():
         self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组报告')
         self.source_filepath = None
         self.target_filepath = self.main_path.joinpath('数据源', '投放计划与目标.xlsx')
+        self.webhook = 'https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410'
         self.target_sheetname_thismonth = None
         self.target_sheetname_lastmonth = None
         self.df_source = None
@@ -50,7 +51,6 @@ class WeekReport():
         self.df_spliced_pred_all = None
         self.read_filepath = None
         self.write_filepath = None
-        self.week_text = None
 
     # 读取csv文件，返回dataframe
     def read_csv(self, filepath):
@@ -297,12 +297,11 @@ class WeekReport():
         return df_month_amount
 
     # 通过钉钉机器人发送信息
-    def send_message(self):
+    def send_message(self, webhook, text_message):
         headers = {'Content-Type': 'application/json'}
-        webhook = 'https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410'
         data = {
             "msgtype": "text",
-            "text": {"content": self.week_text},
+            "text": {"content": text_message},
             "isAtAll": True}
         try:
             response = requests.post(webhook, data=json.dumps(data), headers=headers, timeout=8)
@@ -411,8 +410,8 @@ class WeekReport():
                                        [list_data['month_amount'], list_data['monthly'],
                                         list_data['daily'], self.df_spliced_pred_all,
                                         self.df_target_thismonth, list_data['weekly']])
-                    self.week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
-                    self.send_message()
+                    week_text = f"[{date.today()}] 【KOH】市场周报已更新至：{self.write_filepath}"
+                    self.send_message(self.webhook, week_text)
         else:
             logger.info(f'[{self.source_filepath}]目录下没有文件！\n请重新检查文件存放路径！')
             return False

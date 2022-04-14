@@ -28,6 +28,8 @@ class DailyReport():
         self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组报告')
         self.source_filepath = None
         self.target_filepath = self.main_path.joinpath('数据源', '投放计划与目标.xlsx')
+        self.webhooks = ['https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410',
+                         'https://oapi.dingtalk.com/robot/send?access_token=d3a8d4eec06d280c8868458584fc612e3b25cf952078bdda49322217e695f257']
         self.target_sheetname = None
         self.df_source = None
         self.df_target = None
@@ -45,7 +47,6 @@ class DailyReport():
         self.yesterday = self.now_date - timedelta(days=1)
         self.read_filepath = None
         self.write_filepath = None
-        self.daily_text = None
         self.month_spend_target = None
         self.month_ndev_target = None
         self.act_price_target = None
@@ -325,34 +326,31 @@ class DailyReport():
         return True
 
     # 通过钉钉机器人发送信息
-    def send_message(self):
+    def send_message(self, webhook, text_message):
         headers = {'Content-Type': 'application/json'}
-        webhooks = ['https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410',
-                   'https://oapi.dingtalk.com/robot/send?access_token=d3a8d4eec06d280c8868458584fc612e3b25cf952078bdda49322217e695f257']
         data = {
             "msgtype": "text",
-            "text": {"content": self.daily_text},
+            "text": {"content": text_message},
             "isAtAll": True}
         try:
-            for webhook in webhooks:
-                response = requests.post(webhook, data=json.dumps(data), headers=headers, timeout=8)
-                if response.status_code == 200:
-                    dict_res = response.json()
-                    if dict_res['errcode'] == 310000:
-                        logging.info(f"消息发送失败！失败原因：{dict_res['errmsg']}")
-                        return False
-                    elif dict_res['errcode'] == 0:
-                        logging.info("消息发送成功！")
-                        return True
-                    return dict_res
-                elif response.status_code == 404:
-                    logging.info("该页面不存在！")
-                    return False
-                else:
-                    logging.info(f"消息发送失败！{response.status_code}错误")
-                    return False
+            response = requests.post(webhook, data=json.dumps(data), headers=headers, timeout=8)
         except Exception:
             logging.info("失去响应！")
+            return False
+        if response.status_code == 200:
+            dict_res = response.json()
+            if dict_res['errcode'] == 310000:
+                logging.info(f"消息发送失败！失败原因：{dict_res['errmsg']}")
+                return False
+            elif dict_res['errcode'] == 0:
+                logging.info("消息发送成功！")
+                return True
+            return dict_res
+        elif response.status_code == 404:
+            logging.info("该页面不存在！")
+            return False
+        else:
+            logging.info(f"消息发送失败！{response.status_code}错误")
             return False
 
     # 生成报告读取与存储文件名和路径
@@ -453,7 +451,7 @@ class DailyReport():
 
                 if self.cal_cum_data(list_data['daily']) and self.cal_yesterday_data(list_data['daily']):
                     logger.info(f'数据计算完成！')
-                    self.daily_text = f"[{self.now_date}] 早安~打工人\n" \
+                    daily_text = f"[{self.now_date}] 早安~打工人\n" \
                                       f"截至{self.date_max_str[5:]}，时间进度{self.date_max.day/self.totaldays_thismonth: .1%}，" \
                                       f"计划ROI完成度{self.plan_ROI_complete: .1%}，计划充值金额完成度{self.plan_price_complete: .1%}，" \
                                       f"计划花费完成度{self.plan_spend_complete: .1%};\n" \
@@ -479,7 +477,8 @@ class DailyReport():
                                       f"其中，新增设备中东T1量级{self.num_dev_act_T1 / 1000: .1f}k，" \
                                       f"召回中东T1量级{self.num_dev_lost_T1 / 1000: .1f}k.\n" \
                                       f"详情见 {self.main_path.joinpath('日报')}"
-                    self.send_message()
+                    for webhook in self.webhooks:
+                        self.send_message(webhook, daily_text)
 
                 if self.gen_filepath():
                     self.save_to_excel(self.read_filepath, self.write_filepath,
