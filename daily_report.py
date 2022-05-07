@@ -326,12 +326,12 @@ class DailyReport():
         return True
 
     # 通过钉钉机器人发送信息
-    def send_message(self, webhook, text_message):
+    def send_message(self, webhook, is_at_all, text_message):
         headers = {'Content-Type': 'application/json'}
         data = {
             "msgtype": "text",
             "text": {"content": text_message},
-            "isAtAll": True}
+            "isAtAll": is_at_all}
         try:
             response = requests.post(webhook, data=json.dumps(data), headers=headers, timeout=8)
         except Exception:
@@ -453,8 +453,7 @@ class DailyReport():
                     logger.info(f'数据计算完成！')
                     daily_text = f"[{self.now_date}] 早安~打工人\n" \
                                       f"截至{self.date_max_str[5:]}，时间进度{self.date_max.day/self.totaldays_thismonth: .1%}，" \
-                                      f"计划ROI完成度{self.plan_ROI_complete: .1%}，计划充值金额完成度{self.plan_price_complete: .1%}，" \
-                                      f"计划花费完成度{self.plan_spend_complete: .1%};\n" \
+                                      f"计划ROI完成度{self.plan_ROI_complete: .1%}，计划充值金额完成度{self.plan_price_complete: .1%};\n" \
                                       f"累计月流水${self.month_amount / 10000 if self.month_amount > 10000 else self.month_amount: .2f}{'W' if self.month_amount > 1000 else ''}，" \
                                       f"完成度{self.month_amount_complete: .1%};\n" \
                                       f"累计项目ROI{self.cumulate_all_ROI: .2%}，完成度{self.ROI_complete: .1%};\n" \
@@ -478,7 +477,7 @@ class DailyReport():
                                       f"召回中东T1量级{self.num_dev_lost_T1 / 1000: .1f}k.\n" \
                                       f"详情见 {self.main_path.joinpath('日报')}"
                     for webhook in self.webhooks:
-                        self.send_message(webhook, daily_text)
+                        self.send_message(webhook, False, daily_text)
 
                 if self.gen_filepath():
                     self.save_to_excel(self.read_filepath, self.write_filepath,
