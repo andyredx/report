@@ -257,7 +257,7 @@ class DailyReport():
             history_this_month = history_this_month.rename(columns={'price': 'lost_pred_price'})
         else:
             history_this_month = history_this_month.rename(columns={'spending': 'pred_spend'})
-        return history_this_month.append(forecast_data).reset_index(drop=True)
+        return pd.concat([history_this_month, forecast_data]).reset_index(drop=True)
 
     # 计算累计数据
     def cal_cum_data(self, df_spend_rech_daily):

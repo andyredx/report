@@ -215,7 +215,7 @@ class MonthReport():
             history_this_month = history_this_month.rename(columns={'price': 'lost_pred_price'})
         else:
             history_this_month = history_this_month.rename(columns={'spending': 'pred_spend'})
-        return history_this_month.append(forecast_data).reset_index(drop=True)
+        return pd.concat([history_this_month, forecast_data]).reset_index(drop=True)
 
     # 将实际月流水和月流水目标合并,计算计划目标完成度数据
     def cal_target_data(self, df_month_amount):
