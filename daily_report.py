@@ -69,6 +69,11 @@ class DailyReport():
         self.cumulate_spend = None
         self.cumulate_act_spend = None
         self.cumulate_lost_spend = None
+        self.cumulate_num_dev = None
+        self.cumulate_spend_T1 = None
+        self.cumulate_num_dev_T1 = None
+        self.cumulate_spend_T2 = None
+        self.cumulate_num_dev_T2 = None
         self.cumulate_all_ROI = None
         self.cumulate_act_ROI = None
         self.price_all = None
@@ -77,14 +82,20 @@ class DailyReport():
         self.spend_all = None
         self.spend_all_pct = None
         self.num_dev_all = None
+        self.num_dev_act_before_yesterday = None
         self.num_dev_all_pct = None
         self.num_dev_act = None
         self.num_dev_lost = None
         self.num_dev_T1 = None
         self.num_dev_lost_T1 = None
         self.num_dev_act_T1 = None
+        self.num_retent_dev_act_before_yesterday = None
+        self.num_retent_dev_act_before_yesterday_T1 = None
+        self.num_retent_dev_act_before_yesterday_T2 = None
+        self.num_dev_act_before_yesterday_T1 = None
+        self.num_dev_act_before_yesterday_T2 = None
 
-        # 读取csv文件，返回dataframe
+    # 读取csv文件，返回dataframe
     def read_csv(self, filepath):
         df = pd.DataFrame()
         try:
@@ -278,6 +289,19 @@ class DailyReport():
         self.cumulate_all_ROI = self.cumulate_all_price / self.cumulate_spend
         # 计算累计新增设备ROI
         self.cumulate_act_ROI = self.cumulate_act_price / self.cumulate_act_spend
+        # 将花费表按地理区域分组
+        df_region_group = df_spend_rech_daily.groupby(['region'])[['spending','num_dev']].sum()
+        # 计算累计全部设备数
+        self.cumulate_num_dev = df_region_group.loc[:,'num_dev'].sum()
+        # 累计中东T1花费
+        self.cumulate_spend_T1 = df_region_group.loc[('中东T1'), 'spending']
+        # 累计中东T1量级
+        self.cumulate_num_dev_T1 = df_region_group.loc[('中东T1'), 'num_dev']
+        # 累计中东T2花费
+        self.cumulate_spend_T2 = df_region_group.loc[('中东T2'), 'spending']
+        # 累计中东T2量级
+        self.cumulate_num_dev_T2 = df_region_group.loc[('中东T2'), 'num_dev']
+
         # 按渠道名称、平台和设备类型计算花费和充值
         df_channel_group = df_spend_rech_daily.groupby([
             'channel_name','platform','dev_type'])[['spending','num_dev','num_rech_dev','price']].sum()
@@ -294,9 +318,10 @@ class DailyReport():
 
     # 计算昨日数据
     def cal_yesterday_data(self, df_spend_rech_daily):
-        # 按日期分组计算花费、量级和充值
+        date_max_yesterday = self.date_max - timedelta(days=1)
+        # 按日期分组计算花费、量级、次留数和充值
         df_group_daily = df_spend_rech_daily.groupby([
-            'dates'])[['spending', 'num_dev', 'price']].sum()
+            'dates'])[['spending', 'num_dev', 'num_retent', 'price']].sum()
         # 计算昨日花费、量级和充值
         self.spend_all = df_group_daily.loc[self.date_max_str, 'spending']
         self.num_dev_all = df_group_daily.loc[self.date_max_str, 'num_dev']
@@ -307,9 +332,21 @@ class DailyReport():
         self.num_dev_all_pct = df_spend_pct_daily.loc[self.date_max_str, 'num_dev']
         # 按设备类型和日期分组计算花费和充值
         df_dev_type_group_daily = df_spend_rech_daily.groupby([
-            'dev_type','dates'])[['spending','num_dev','price']].sum()
-        # 计算昨日新增设备量级和充值、召回量级和充值
+            'dev_type','dates'])[['spending','num_dev','num_retent','price']].sum()
+        # 计算昨日新增设备量级、前日新增量级和次留数、充值、召回量级和充值
         self.num_dev_act = df_dev_type_group_daily.loc[('新增', self.date_max_str), 'num_dev']
+        # 非月初第一天
+        if self.date_max.day != 1:
+            self.num_dev_act_before_yesterday = df_dev_type_group_daily.loc[('新增', str(date_max_yesterday)), 'num_dev']
+            self.num_retent_dev_act_before_yesterday = df_dev_type_group_daily.loc[('新增', str(date_max_yesterday)), 'num_retent']
+            # 按地理区域、设备类型和日期分组计算花费和充值
+            df_region_dev_type_group_daily = df_spend_rech_daily.groupby([
+                'region','dev_type','dates'])[['spending','num_dev','num_retent','price']].sum()
+            self.num_retent_dev_act_before_yesterday_T1 = df_region_dev_type_group_daily.loc[('中东T1','新增',str(date_max_yesterday)), 'num_retent']
+            self.num_retent_dev_act_before_yesterday_T2 = df_region_dev_type_group_daily.loc[('中东T2','新增',str(date_max_yesterday)), 'num_retent']
+            self.num_dev_act_before_yesterday_T1 = df_region_dev_type_group_daily.loc[('中东T1','新增',str(date_max_yesterday)), 'num_dev']
+            self.num_dev_act_before_yesterday_T2 = df_region_dev_type_group_daily.loc[('中东T2','新增',str(date_max_yesterday)), 'num_dev']
+
         self.price_act = df_dev_type_group_daily.loc[('新增', self.date_max_str), 'price']
         self.num_dev_lost = df_dev_type_group_daily.loc[('召回', self.date_max_str), 'num_dev']
         self.price_lost = df_dev_type_group_daily.loc[('召回',self.date_max_str), 'price']
@@ -465,10 +502,14 @@ class DailyReport():
                                       f"完成度{self.lost_price_complete: .1%};\n" \
                                       f"累计花费${self.cumulate_spend / 1000 if self.cumulate_spend > 1000 else self.cumulate_spend: .2f}{'k' if self.cumulate_spend > 1000 else ''}，" \
                                       f"完成度{self.spend_complete: .1%};\n" \
+                                      f"累计成本${self.cumulate_spend/self.cumulate_num_dev: .2f}，其中，中东T1成本${self.cumulate_spend_T1/self.cumulate_num_dev_T1: .2f}，中东T2成本${self.cumulate_spend_T2/self.cumulate_num_dev_T2: .2f};\n" \
                                       f"昨日充值${self.price_all: .1f}，其中新增设备充值${self.price_act: .1f}，" \
                                       f"召回充值${self.price_lost: .1f};\n" \
                                       f"昨日花费${self.spend_all / 1000: .2f}k，" \
                                       f"环比{'上升' if self.spend_all_pct > 0 else '下降'}{abs(self.spend_all_pct): .2%};\n" \
+                                      f"新增设备前日次留率{self.num_retent_dev_act_before_yesterday / self.num_dev_act_before_yesterday if self.num_dev_act_before_yesterday else 0: .2%}，其中，" \
+                                      f"中东T1次留率{self.num_retent_dev_act_before_yesterday_T1 / self.num_dev_act_before_yesterday_T1 if self.num_dev_act_before_yesterday_T1 else 0: .2%}，" \
+                                      f"中东T2次留率{self.num_retent_dev_act_before_yesterday_T2 / self.num_dev_act_before_yesterday_T2 if self.num_dev_act_before_yesterday_T2 else 0: .2%};\n" \
                                       f"昨日量级{self.num_dev_all / 1000: .1f}k，其中，新增设备量级{self.num_dev_act / 1000: .1f}k，" \
                                       f"召回设备占比{self.num_dev_lost / self.num_dev_all: .2%};\n" \
                                       f"昨日中东T1量级{self.num_dev_T1 / 1000: .1f}k，" \
@@ -486,8 +527,6 @@ class DailyReport():
                                         self.df_spliced_pred_all, self.df_target])
         else:
             logger.info(f'[{self.source_filepath}]目录下没有文件！\n请重新检查文件存放路径！')
-            return False
-
 
 def main():
     s0 = time.perf_counter()
