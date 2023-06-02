@@ -20,16 +20,16 @@ logging.basicConfig(
     datefmt = "%H:%M:%S",
     stream = sys.stderr
 )
-logger = logging.getLogger("daily_report")
+logger = logging.getLogger(__name__)
 
 
 class DailyReport():
     def __init__(self):
-        self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组报告')
+        self.main_path = Path('Y:\广告\账户组报告')
         self.source_filepath = None
         self.target_filepath = self.main_path.joinpath('数据源', '投放计划与目标.xlsx')
-        self.webhooks = ['https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410',
-                         'https://oapi.dingtalk.com/robot/send?access_token=d3a8d4eec06d280c8868458584fc612e3b25cf952078bdda49322217e695f257']
+        self.webhooks = ['https://oapi.dingtalk.com/robot/send?access_token=XXX',
+                         'https://oapi.dingtalk.com/robot/send?access_token=XXX']
         self.target_sheetname = None
         self.df_source = None
         self.df_target = None

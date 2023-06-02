@@ -20,15 +20,15 @@ logging.basicConfig(
     datefmt = "%H:%M:%S",
     stream = sys.stderr
 )
-logger = logging.getLogger("week_report")
+logger = logging.getLogger(__name__)
 
 
 class WeekReport():
     def __init__(self):
-        self.main_path = Path('Y:\广告\【共用】媒介报告\阿语RoS\账户组\【KOH】账户组报告')
+        self.main_path = Path('Y:\广告\账户组报告')
         self.source_filepath = None
         self.target_filepath = self.main_path.joinpath('数据源', '投放计划与目标.xlsx')
-        self.webhook = 'https://oapi.dingtalk.com/robot/send?access_token=0b77d70a9e88cd080b299b5bb7c8b83687a1fee89e6f3b3e75ed0dfacaf06410'
+        self.webhook = 'https://oapi.dingtalk.com/robot/send?access_token=XXX'
         self.target_sheetname_thismonth = None
         self.target_sheetname_lastmonth = None
         self.df_source = None
